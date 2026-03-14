@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>EMFI Check-in — De Zeilen 2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sand: #F5F0E8;
+      --warm: #EDE5D8;
+      --clay: #C9A882;
+      --sage: #7A9E7E;
+      --dusk: #5C7A8C;
+      --night: #2D3A45;
+      --blush: #E8B4A0;
+      --lilac: #B8A9C9;
+      --text: #2D3A45;
+      --muted: #7A8A96;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--sand);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      max-width: 420px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--sand);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bg-blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.25;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .header {
+      padding: 48px 28px 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .greeting {
+      font-family: 'Fraunces', serif;
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--night);
+      line-height: 1.3;
+    }
+
+    .greeting em { font-style: italic; color: var(--dusk); }
+
+    .date-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--warm);
+      border: 1px solid var(--clay);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    .content {
+      flex: 1;
+      padding: 8px 28px 32px;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex;
+      gap: 6px;
+      background: var(--warm);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 9px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab.active {
+      background: white;
+      color: var(--night);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      font-weight: 500;
+    }
+
+    /* EMFI */
+    .emfi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .emfi-card {
+      background: white;
+      border-radius: 18px;
+      padding: 18px 16px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    .emfi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.09); }
+
+    .emfi-card.e-color { color: #E8B4A0; }
+    .emfi-card.m-color { color: #B8A9C9; }
+    .emfi-card.f-color { color: #7A9E7E; }
+    .emfi-card.i-color { color: #5C7A8C; }
+
+    .emfi-card.active.e-color { background: #E8B4A0; border-color: #E8B4A0; }
+    .emfi-card.active.m-color { background: #B8A9C9; border-color: #B8A9C9; }
+    .emfi-card.active.f-color { background: #7A9E7E; border-color: #7A9E7E; }
+    .emfi-card.active.i-color { background: #5C7A8C; border-color: #5C7A8C; }
+
+    .emfi-card.active .emfi-label { color: white; }
+    .emfi-card.active .emfi-title { color: white; }
+    .emfi-card.active .emfi-emoji { transform: scale(1.15); }
+
+    .emfi-emoji { font-size: 32px; transition: transform 0.2s; }
+    .emfi-title { font-size: 13px; font-weight: 500; color: var(--night); }
+    .emfi-label { font-size: 11px; color: var(--muted); text-align: center; transition: color 0.2s; }
+
+    .emfi-panel {
+      margin-top: 6px;
+      background: white;
+      border-radius: 12px;
+      padding: 10px 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      animation: fadeIn 0.2s ease;
+    }
+
+    /* Feeling */
+    .feeling-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    .feeling-title {
+      font-family: 'Fraunces', serif;
+      font-size: 17px;
+      font-weight: 300;
+      margin-bottom: 16px;
+      color: var(--night);
+    }
+
+    .mood-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 6px;
+    }
+
+    .mood-btn {
+      flex: 1;
+      aspect-ratio: 1;
+      border: none;
+      border-radius: 12px;
+      font-size: 22px;
+      cursor: pointer;
+      background: var(--warm);
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mood-btn:hover { transform: scale(1.08); }
+    .mood-btn.selected { background: var(--clay); transform: scale(1.12); box-shadow: 0 4px 12px rgba(201,168,130,0.4); }
+
+    .mood-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      padding: 0 2px;
+    }
+
+    /* Chips */
+    .chip {
+      padding: 4px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      background: var(--warm);
+      color: var(--muted);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .chip.active { background: var(--dusk); color: white; border-color: var(--dusk); }
+
+    /* Mini cards */
+    .mini-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .mini-card {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    .mini-card-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .star-row { display: flex; gap: 4px; }
+
+    .star {
+      font-size: 20px;
+      cursor: pointer;
+      transition: transform 0.1s;
+      filter: grayscale(1);
+      opacity: 0.4;
+    }
+
+    .star:hover { transform: scale(1.2); }
+    .star.lit { filter: none; opacity: 1; }
+
+    .activity-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+    /* Thought card */
+    .thought-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    .thought-card textarea {
+      width: 100%;
+      border: none;
+      background: var(--warm);
+      border-radius: 12px;
+      padding: 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      resize: none;
+      height: 100px;
+      outline: none;
+      line-height: 1.6;
+      transition: background 0.2s;
+    }
+
+    .thought-card textarea:focus { background: #E8E2D6; }
+    .thought-card textarea::placeholder { color: var(--muted); }
+
+    .private-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-dot {
+      width: 32px;
+      height: 18px;
+      background: var(--warm);
+      border-radius: 9px;
+      border: 1.5px solid var(--clay);
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .toggle-dot::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: var(--clay);
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.2s;
+    }
+
+    .toggle-dot.on { background: var(--sage); border-color: var(--sage); }
+    .toggle-dot.on::after { transform: translateX(14px); background: white; }
+
+    /* Submit */
+    .submit-btn {
+      background: var(--night);
+      color: var(--sand);
+      border: none;
+      border-radius: 16px;
+      padding: 18px;
+      width: 100%;
+      font-family: 'Fraunces', serif;
+      font-size: 17px;
+      font-weight: 300;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .submit-btn:hover { background: var(--dusk); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,58,69,0.25); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .hint-text {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: -8px;
+    }
+
+    /* Success */
+    .success-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 28px;
+      text-align: center;
+      gap: 16px;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      background: var(--sage);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 8px 24px rgba(122,158,126,0.35);
+      color: white;
+      font-weight: bold;
+    }
+
+    .success-title {
+      font-family: 'Fraunces', serif;
+      font-size: 26px;
+      font-weight: 300;
+      color: var(--night);
+    }
+
+    .success-sub {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 280px;
+    }
+
+    .staff-preview {
+      background: white;
+      border-radius: 16px;
+      padding: 16px 20px;
+      text-align: left;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .staff-preview-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .preview-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--warm);
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .preview-row:last-child { border-bottom: none; }
+
+    .reset-btn {
+      margin-top: 12px;
+      background: transparent;
+      border: 1.5px solid var(--clay);
+      color: var(--clay);
+      border-radius: 12px;
+      padding: 12px 28px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .reset-btn:hover { background: var(--clay); color: white; }
+
+    /* Staff view */
+    .patient-card {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+      margin-bottom: 10px;
+    }
+
+    .patient-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .patient-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500; }
+    .patient-room { font-size: 11px; color: var(--muted); }
+
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.green { background: var(--sage); }
+    .status-dot.yellow { background: #E8C96A; }
+    .status-dot.red { background: #E8826A; }
+
+    .patient-emfi { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .emfi-badge {
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .flag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #E8826A;
+      margin-top: 6px;
+    }
+
+    .trend-card {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    .trend-row {
+      display: flex;
+      justify-content: space-around;
+      padding-top: 8px;
+    }
+
+    .trend-item { text-align: center; }
+    .trend-emoji { font-size: 28px; }
+    .trend-count { font-size: 18px; font-family: 'Fraunces', serif; font-weight: 500; }
+    .trend-label { font-size: 11px; color: var(--muted); }
+
+    /* Hidden utility */
+    .hidden { display: none !important; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-in { animation: fadeIn 0.3s ease forwards; }
+  </style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <!-- Background blobs -->
+  <div class="bg-blob" style="width:300px;height:300px;background:#C9A882;top:-80px;right:-80px;"></div>
+  <div class="bg-blob" style="width:250px;height:250px;background:#7A9E7E;bottom:60px;left:-60px;"></div>
+
+  <!-- Tab switcher -->
+  <div style="padding:16px 28px 0;position:relative;z-index:2;">
+    <div class="tab-bar">
+      <button class="tab active" id="tab-patient" onclick="switchView('patient')">🙋 Patiënt</button>
+      <button class="tab" id="tab-staff" onclick="switchView('staff')">🩺 Begeleiding</button>
+    </div>
+  </div>
+
+  <!-- ══ PATIENT VIEW ══ -->
+  <div id="view-patient">
+
+    <!-- FORM -->
+    <div id="patient-form">
+      <div class="header">
+        <p class="greeting" id="greeting-text"></p>
+        <div class="date-chip">📅 <span id="date-text"></span></div>
+      </div>
+
+      <div class="content">
+
+        <!-- Stemming -->
+        <div class="feeling-card animate-in">
+          <p class="feeling-title">Hoe voel jij je nu?</p>
+          <div class="mood-row" id="mood-row"></div>
+          <div class="mood-label-row">
+            <span>Heel slecht</span><span></span><span>Neutraal</span><span></span><span>Heel goed</span>
+          </div>
+        </div>
+
+        <!-- EMFI -->
+        <div>
+          <p class="section-label">EMFI — selecteer minstens 2</p>
+          <div class="emfi-grid" id="emfi-grid"></div>
+        </div>
+
+        <!-- Slaap & Activiteiten -->
+        <div class="mini-cards">
+          <div class="mini-card">
+            <p class="mini-card-title">😴 Slaap</p>
+            <div class="star-row" id="star-row"></div>
+          </div>
+          <div class="mini-card">
+            <p class="mini-card-title">🏃 Activiteit</p>
+            <div class="activity-chips" id="activity-chips"></div>
+          </div>
+        </div>
+
+        <!-- Gedachten -->
+        <div class="thought-card">
+          <p class="feeling-title">Persoonlijke gedachte <span style="font-size:13px;color:var(--muted);font-weight:300">— optioneel</span></p>
+          <textarea id="thought-input" placeholder="Schrijf hier iets wat je bezig houdt..."></textarea>
+          <label class="private-toggle" onclick="togglePrivate()">
+            <div class="toggle-dot" id="toggle-dot"></div>
+            <span id="toggle-label">Zichtbaar voor begeleiding</span>
+          </label>
+        </div>
+
+        <button class="submit-btn" id="submit-btn" onclick="handleSubmit()" disabled>
+          Verstuur naar dossier <span>→</span>
+        </button>
+        <p class="hint-text" id="hint-text">Vul minstens je stemming en 2 EMFI-gebieden in</p>
+
+      </div>
+    </div><!-- /patient-form -->
+
+    <!-- SUCCESS -->
+    <div id="patient-success" class="hidden">
+      <div class="success-screen">
+        <div class="success-icon">✓</div>
+        <p class="success-title">Bedankt!</p>
+        <p class="success-sub">Je check-in is opgeslagen en doorgestuurd naar je begeleider. Goed bezig dat je dit invult. 💚</p>
+        <div class="staff-preview">
+          <p class="staff-preview-title">📋 Doorgestuurd naar dossier</p>
+          <div id="success-rows"></div>
+        </div>
+        <button class="reset-btn" onclick="resetForm()">Nieuwe check-in invullen</button>
+      </div>
+    </div>
+
+  </div><!-- /view-patient -->
+
+  <!-- ══ STAFF VIEW ══ -->
+  <div id="view-staff" class="hidden">
+    <div class="header">
+      <p class="greeting">Overzicht<br><em>patiëntendossiers</em></p>
+      <div class="date-chip">📅 <span id="staff-date-text"></span> — avondcheck-in</div>
+    </div>
+    <div class="content">
+      <p class="section-label">Patiënten — De Zeilen 2</p>
+      <div id="patient-list"></div>
+      <div class="trend-card">
+        <p class="section-label">📊 Trend vandaag</p>
+        <div class="trend-row">
+          <div class="trend-item"><div class="trend-emoji">😔</div><div class="trend-count">1</div><div class="trend-label">Slecht</div></div>
+          <div class="trend-item"><div class="trend-emoji">😐</div><div class="trend-count">0</div><div class="trend-label">Neutraal</div></div>
+          <div class="trend-item"><div class="trend-emoji">😊</div><div class="trend-count">2</div><div class="trend-label">Goed</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ─── DATA ──────────────────────────────────────────────
+
+const MOODS = ["😔","😟","😐","🙂","😊"];
+const MOOD_LABELS = ["Heel slecht","Slecht","Neutraal","Goed","Heel goed"];
+
+const EMFI_ITEMS = [
+  { key: "E", emoji: "💬", title: "Emoties",  label: "Hoe voel je je?",       color: "e-color" },
+  { key: "M", emoji: "🧠", title: "Mentaal",  label: "Gedachten & focus",     color: "m-color" },
+  { key: "F", emoji: "🌿", title: "Fysiek",   label: "Lichaam & energie",     color: "f-color" },
+  { key: "I", emoji: "🤝", title: "Interactie", label: "Contact & omgeving", color: "i-color" },
+];
+
+const EMFI_OPTIONS = {
+  E: ["Rustig","Angstig","Verdrietig","Boos","Verward","Hopevol"],
+  M: ["Helder","Vermoeid","Piekeren","Geconcentreerd","Somber","Leeg"],
+  F: ["Energiek","Zwaar","Pijn","Gespannen","Ontspannen","Moe"],
+  I: ["Verbonden","Teruggetrokken","Ondersteund","Eenzaam","Sociaal","Prikkelbaar"],
+};
+
+const EMFI_COLORS = { E: "#E8B4A0", M: "#B8A9C9", F: "#7A9E7E", I: "#5C7A8C" };
+
+const ACTIVITIES = ["Wandelen","Groepsactiviteit","Gesprek","Lezen","Rusten","Creatief","Eten","Muziek"];
+
+const PATIENTS = [
+  { id:1, name:"Thomas V.", room:"Kamer 12", status:"yellow", mood:1,
+    emfi:{ E:"Angstig", M:"Piekeren", F:"Gespannen", I:"Teruggetrokken" },
+    thought:"Sliep slecht, maak me zorgen over morgen.", activities:["Rusten"], sleep:2,
+    flag:true, flagMsg:"Laag humeur, 3 dagen op rij" },
+  { id:2, name:"Sara M.", room:"Kamer 7", status:"green", mood:4,
+    emfi:{ E:"Hopevol", M:"Helder", F:"Energiek", I:"Verbonden" },
+    thought:null, activities:["Wandelen","Groepsactiviteit"], sleep:4, flag:false },
+  { id:3, name:"Kevin D.", room:"Kamer 3", status:"red", mood:0,
+    emfi:{ E:"Verdrietig", M:"Leeg", F:"Zwaar", I:"Eenzaam" },
+    thought:"Wil niet praten vandaag.", activities:["Rusten"], sleep:1,
+    flag:true, flagMsg:"Vraagt aandacht — weinig sociale interactie" },
+];
+
+// ─── STATE ──────────────────────────────────────────────
+
+let state = {
+  mood: null,
+  emfi: {},
+  sleep: 0,
+  activities: [],
+  privateThought: false,
+  activePanel: null,
+};
+
+// ─── INIT ──────────────────────────────────────────────
+
+function init() {
+  setDateTime();
+  buildMoodRow();
+  buildEmfiGrid();
+  buildStars();
+  buildActivityChips();
+  buildPatientList();
+}
+
+function setDateTime() {
+  const now = new Date();
+  const opts = { weekday:'long', day:'numeric', month:'long' };
+  const dateStr = now.toLocaleDateString('nl-BE', opts);
+  const h = now.getHours();
+  const greeting = h < 12 ? "Goedemorgen" : h < 18 ? "Goedemiddag" : "Goedenavond";
+  document.getElementById('greeting-text').innerHTML = `${greeting},<br><em>hoe gaat het vandaag?</em>`;
+  document.getElementById('date-text').textContent = dateStr;
+  document.getElementById('staff-date-text').textContent = dateStr;
+}
+
+function buildMoodRow() {
+  const row = document.getElementById('mood-row');
+  MOODS.forEach((emoji, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'mood-btn';
+    btn.textContent = emoji;
+    btn.title = MOOD_LABELS[i];
+    btn.onclick = () => selectMood(i);
+    btn.id = `mood-btn-${i}`;
+    row.appendChild(btn);
+  });
+}
+
+function buildEmfiGrid() {
+  const grid = document.getElementById('emfi-grid');
+  EMFI_ITEMS.forEach(item => {
+    const wrapper = document.createElement('div');
+    wrapper.id = `emfi-wrapper-${item.key}`;
+
+    const card = document.createElement('div');
+    card.className = `emfi-card ${item.color}`;
+    card.id = `emfi-card-${item.key}`;
+    card.innerHTML = `
+      <div class="emfi-emoji">${item.emoji}</div>
+      <div class="emfi-title">${item.title}</div>
+      <div class="emfi-label" id="emfi-label-${item.key}">${item.label}</div>
+    `;
+    card.onclick = () => toggleEmfiPanel(item.key);
+    wrapper.appendChild(card);
+
+    const panel = document.createElement('div');
+    panel.className = 'emfi-panel hidden';
+    panel.id = `emfi-panel-${item.key}`;
+    EMFI_OPTIONS[item.key].forEach(opt => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.id = `emfi-opt-${item.key}-${opt}`;
+      chip.textContent = opt;
+      chip.onclick = (e) => { e.stopPropagation(); selectEmfiOption(item.key, opt); };
+      panel.appendChild(chip);
+    });
+    wrapper.appendChild(panel);
+    grid.appendChild(wrapper);
+  });
+}
+
+function buildStars() {
+  const row = document.getElementById('star-row');
+  for (let i = 1; i <= 5; i++) {
+    const star = document.createElement('span');
+    star.className = 'star';
+    star.id = `star-${i}`;
+    star.textContent = '⭐';
+    star.onclick = () => selectSleep(i);
+    row.appendChild(star);
+  }
+}
+
+function buildActivityChips() {
+  const container = document.getElementById('activity-chips');
+  ACTIVITIES.slice(0, 4).forEach(act => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.id = `act-${act}`;
+    chip.textContent = act;
+    chip.onclick = () => toggleActivity(act);
+    container.appendChild(chip);
+  });
+}
+
+function buildPatientList() {
+  const list = document.getElementById('patient-list');
+  PATIENTS.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'patient-card animate-in';
+
+    let emfiBadges = Object.entries(p.emfi).map(([k, v]) =>
+      `<span class="emfi-badge" style="background:${EMFI_COLORS[k]}30;color:${EMFI_COLORS[k]}">${EMFI_ITEMS.find(e=>e.key===k)?.title}: ${v}</span>`
+    ).join('');
+
+    let stars = '⭐'.repeat(p.sleep) + '☆'.repeat(5 - p.sleep);
+
+    card.innerHTML = `
+      <div class="patient-header">
+        <div>
+          <p class="patient-name">${p.name}</p>
+          <p class="patient-room">${p.room}</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:22px">${MOODS[p.mood]}</span>
+          <div class="status-dot ${p.status}"></div>
+        </div>
+      </div>
+      <div class="patient-emfi">${emfiBadges}</div>
+      ${p.thought ? `<p style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;padding-left:4px">💭 "${p.thought}"</p>` : ''}
+      <div style="display:flex;gap:6px;margin-top:8px;font-size:12px;color:var(--muted)">
+        <span>😴 ${stars}</span>
+        <span>·</span>
+        <span>🏃 ${p.activities.join(', ')}</span>
+      </div>
+      ${p.flag ? `<div class="flag">⚠️ ${p.flagMsg}</div>` : ''}
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ─── INTERACTIONS ──────────────────────────────────────
+
+function selectMood(i) {
+  state.mood = i;
+  MOODS.forEach((_, idx) => {
+    document.getElementById(`mood-btn-${idx}`).classList.toggle('selected', idx === i);
+  });
+  updateSubmitState();
+}
+
+function toggleEmfiPanel(key) {
+  const wasOpen = state.activePanel === key;
+  // close any open panel
+  if (state.activePanel) {
+    document.getElementById(`emfi-panel-${state.activePanel}`).classList.add('hidden');
+    document.getElementById(`emfi-card-${state.activePanel}`).classList.remove('active');
+  }
+  if (!wasOpen) {
+    state.activePanel = key;
+    document.getElementById(`emfi-panel-${key}`).classList.remove('hidden');
+    document.getElementById(`emfi-card-${key}`).classList.add('active');
+  } else {
+    state.activePanel = null;
+  }
+}
+
+function selectEmfiOption(key, val) {
+  const prev = state.emfi[key];
+  if (prev) document.getElementById(`emfi-opt-${key}-${prev}`)?.classList.remove('active');
+  if (prev === val) {
+    delete state.emfi[key];
+    document.getElementById(`emfi-label-${key}`).textContent = EMFI_ITEMS.find(e=>e.key===key).label;
+  } else {
+    state.emfi[key] = val;
+    document.getElementById(`emfi-opt-${key}-${val}`).classList.add('active');
+    document.getElementById(`emfi-label-${key}`).textContent = val;
+  }
+  updateSubmitState();
+}
+
+function selectSleep(n) {
+  state.sleep = n;
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`star-${i}`).classList.toggle('lit', i <= n);
+  }
+}
+
+function toggleActivity(act) {
+  const idx = state.activities.indexOf(act);
+  if (idx === -1) state.activities.push(act);
+  else state.activities.splice(idx, 1);
+  document.getElementById(`act-${act}`).classList.toggle('active', state.activities.includes(act));
+}
+
+function togglePrivate() {
+  state.privateThought = !state.privateThought;
+  document.getElementById('toggle-dot').classList.toggle('on', state.privateThought);
+  document.getElementById('toggle-label').textContent = state.privateThought
+    ? 'Alleen voor mij (niet zichtbaar in dossier)'
+    : 'Zichtbaar voor begeleiding';
+}
+
+function updateSubmitState() {
+  const ok = state.mood !== null && Object.keys(state.emfi).length >= 2;
+  document.getElementById('submit-btn').disabled = !ok;
+  document.getElementById('hint-text').style.display = ok ? 'none' : 'block';
+}
+
+function handleSubmit() {
+  const thought = document.getElementById('thought-input').value;
+  const moodLabels = ["Heel slecht","Slecht","Neutraal","Goed","Heel goed"];
+
+  let rows = `<div class="preview-row"><span>😊</span> Stemming: ${MOODS[state.mood]} (${moodLabels[state.mood]})</div>`;
+
+  Object.entries(state.emfi).forEach(([k, v]) => {
+    const item = EMFI_ITEMS.find(e => e.key === k);
+    rows += `<div class="preview-row"><span>${item.emoji}</span> ${item.title}: ${v}</div>`;
+  });
+
+  if (state.sleep > 0) rows += `<div class="preview-row"><span>😴</span> Slaapkwaliteit: ${state.sleep}/5</div>`;
+  if (state.activities.length > 0) rows += `<div class="preview-row"><span>🏃</span> Activiteiten: ${state.activities.join(', ')}</div>`;
+
+  if (thought && !state.privateThought) {
+    rows += `<div class="preview-row"><span>💭</span> Gedachte: "${thought.slice(0, 40)}${thought.length > 40 ? '…' : ''}"</div>`;
+  } else if (thought && state.privateThought) {
+    rows += `<div class="preview-row" style="color:var(--muted)"><span>🔒</span> Persoonlijke gedachte (privé)</div>`;
+  }
+
+  document.getElementById('success-rows').innerHTML = rows;
+  document.getElementById('patient-form').classList.add('hidden');
+  document.getElementById('patient-success').classList.remove('hidden');
+}
+
+function resetForm() {
+  state = { mood: null, emfi: {}, sleep: 0, activities: [], privateThought: false, activePanel: null };
+
+  // Reset mood
+  MOODS.forEach((_, i) => document.getElementById(`mood-btn-${i}`).classList.remove('selected'));
+
+  // Reset EMFI
+  EMFI_ITEMS.forEach(item => {
+    document.getElementById(`emfi-card-${item.key}`).classList.remove('active');
+    document.getElementById(`emfi-panel-${item.key}`).classList.add('hidden');
+    document.getElementById(`emfi-label-${item.key}`).textContent = item.label;
+    EMFI_OPTIONS[item.key].forEach(opt => {
+      document.getElementById(`emfi-opt-${item.key}-${opt}`)?.classList.remove('active');
+    });
+  });
+
+  // Reset stars
+  for (let i = 1; i <= 5; i++) document.getElementById(`star-${i}`).classList.remove('lit');
+
+  // Reset activities
+  ACTIVITIES.slice(0, 4).forEach(a => document.getElementById(`act-${a}`)?.classList.remove('active'));
+
+  // Reset textarea & toggle
+  document.getElementById('thought-input').value = '';
+  document.getElementById('toggle-dot').classList.remove('on');
+  document.getElementById('toggle-label').textContent = 'Zichtbaar voor begeleiding';
+
+  // Update submit
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('hint-text').style.display = 'block';
+
+  // Show form
+  document.getElementById('patient-form').classList.remove('hidden');
+  document.getElementById('patient-success').classList.add('hidden');
+}
+
+function switchView(v) {
+  document.getElementById('view-patient').classList.toggle('hidden', v !== 'patient');
+  document.getElementById('view-staff').classList.toggle('hidden', v !== 'staff');
+  document.getElementById('tab-patient').classList.toggle('active', v === 'patient');
+  document.getElementById('tab-staff').classList.toggle('active', v === 'staff');
+}
+
+// ─── BOOT ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
