@@ -10,10 +10,20 @@ Ontworpen als echte app: vaste bovenbalk, tabbalk onderaan, panelen die van onde
 
 Op een computer draait de app in een gesimuleerd toestel dat meeschaalt met je venster. Rechtsboven wissel je tussen **iPhone** (met dynamic island) en **iPad** (liggend, over de volle breedte, met de app in twee kolommen). Wat je aan het invullen bent, blijft staan als je wisselt, en de browser onthoudt je keuze. Daarnaast staat, los van die schakelaar, de knop **Bekijk begeleidersportaal**. De disclaimer open je met het kleine **i**-knopje rechtsonder. Op een telefoon of tablet zelf is de app gewoon schermvullend.
 
-- **Vandaag**: begroeting, check-in starten met één tik op een gezichtje, de dagplanning van de afdeling en je week in één oogopslag.
+- **Vandaag**: begroeting, check-in starten met één tik op een gezichtje, een korte samenvatting van Lumi, de dagplanning van de afdeling en je week in één oogopslag.
 - **Check-in in vijf stappen**: stemming, EMFI (minstens 2 van de 4, met "Weet ik niet"), slaap en activiteiten, een gespreksvraag en notitie (delen of privé), en tot slot nakijken. Stop je halverwege, dan ga je later verder waar je was.
-- **Verloop**: je stemming over 7 of 14 dagen, wat het vaakst terugkwam per EMFI-gebied, en een voorzichtig patroon ("Op dagen met wandelen ging het vaak beter").
+- **Verloop**: je stemming over 7 of 14 dagen, een samenvatting van Lumi, wat het vaakst terugkwam per EMFI-gebied, en een voorzichtig patroon ("Op dagen met wandelen ging het vaak beter").
 - **Rust**: een ademoefening van een minuut, wat jou helpt (uit je signaleringsplan) en een knop om meteen een begeleider te vragen.
+
+### Lumi, de AI-assistent (demo)
+
+Op **Vandaag** en **Verloop** staat een kader van Lumi met een korte samenvatting van je dag of je week. Via **Praat met Lumi** open je een chat voor kleine vragen: wat er nog op de planning staat, hoe je week was, tips om te ontspannen, bezoekuren of maaltijden.
+
+- Lumi is er **niet voor noodgevallen**. Dat staat bovenaan in elke chat, met een knop **Vraag een begeleider** die altijd zichtbaar blijft.
+- Schrijft iemand iets wat op een crisis lijkt, dan antwoordt Lumi niet inhoudelijk. Hij verwijst meteen naar een begeleider (één tik) en naar de Zelfmoordlijn (1813).
+- Lumi kan je ook naar de ademoefening of je check-in brengen.
+
+Lumi is **niet gekoppeld aan een taalmodel**. Alle antwoorden komen uit vaste regels en de gegevens in de app. Hij is er enkel ter demonstratie.
 
 ### Eenvoudige modus
 
@@ -31,10 +41,20 @@ Voor mensen met ASS of een verstandelijke beperking. Je zet hem aan met de knop 
 
 Een werkplek met zijbalk, gemaakt voor een groot scherm.
 
-- **Overzicht**: kerncijfers van de dienst, filters en zoeken (toets `/`). Patiënten staan gesorteerd op prioriteit, met de stemming van de laatste 7 dagen per persoon.
-- **Detailpaneel naast de lijst**: weekgrafiek, EMFI, slaap, notitie, signalen en rapportering die je opslaat in het dossier. Met ↑ en ↓ ga je door de lijst.
+- **Overzicht**: een strook met kerncijfers (ingecheckt, direct opvolgen, opvolgen, gespreksvragen, gemiddelde stemming tegenover gisteren), filters en zoeken (toets `/`).
+- **Patiëntenlijst per prioriteit**: gegroepeerd in *Direct opvolgen*, *Opvolgen*, *Stabiel* en *Nog geen check-in*. Per persoon zie je de stemming, de laatste 7 dagen en het belangrijkste aandachtspunt.
+- **Detailpaneel naast de lijst** met drie tabbladen: *Vandaag* (EMFI, slaap, activiteiten, notitie, signalen), *Verloop* (weekgrafiek) en *Rapportering* (opslaan in het dossier). Met ↑ en ↓ ga je door de lijst.
 - **Acties**: "Markeer als opgevolgd", een herinnering sturen, en reageren op "vraagt nu een begeleider". De patiënt ziet die reactie meteen in de app.
 - **Overdracht**: automatisch samengesteld per prioriteit, om te kopiëren of af te drukken.
+
+### AI-functies (demo)
+
+- **Lumi-briefing** bovenaan het overzicht: een samenvatting van je dienst, met per patiënt die aandacht vraagt een concrete suggestie. Klik op een naam om die patiënt te openen.
+- **Samenvatting per patiënt** in het detailpaneel.
+- **Concept-rapportering**: Lumi schrijft een eerste versie van de rapportering. Je leest die na en past ze aan voor je ze opslaat. In het dossier staat dan "met Lumi".
+- **Samenvatting bij de overdracht**.
+
+Ook hier zit geen taalmodel achter. Alle suggesties komen uit vaste regels, en de begeleider beslist altijd zelf.
 
 Op een tablet of telefoon opent het detailpaneel als schuifpaneel.
 

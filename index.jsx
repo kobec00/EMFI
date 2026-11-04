@@ -141,13 +141,13 @@ const SIMPLE_STEPS = [
    en zeker mensen met ASS. */
 const SCHEDULE = [
   { time: "08:00", title: "Ontbijt", icon: "utensils" },
-  { time: "09:30", title: "Bewegingstherapie", sub: "Sportzaal", icon: "walk" },
+  { time: "09:30", title: "Bewegingstherapie", sub: "Sportzaal", where: "in de sportzaal", icon: "walk" },
   { time: "12:00", title: "Middagmaal", icon: "utensils" },
   { time: "13:00", title: "Rustmoment", sub: "Op je kamer", icon: "bed" },
   { time: "14:30", title: "Gesprek met Sofie", sub: "Individueel gesprek", icon: "chat" },
   { time: "16:00", title: "Vrij moment of bezoek", icon: "users" },
   { time: "18:00", title: "Avondmaal", icon: "utensils" },
-  { time: "19:30", title: "Spelavond", sub: "Leefruimte", icon: "palette" },
+  { time: "19:30", title: "Spelavond", sub: "Leefruimte", where: "in de leefruimte", icon: "palette" },
   { time: "21:30", title: "Avondrust", icon: "moon" },
 ];
 
@@ -290,6 +290,7 @@ function findInsight(entries) {
   });
   if (best) {
     return {
+      activity: best.value,
       title: `Op dagen met ${best.value.toLowerCase()} ging het vaak beter`,
       text: `Je stemming was dan gemiddeld “${MOODS[Math.round(best.w)].toLowerCase()}”. Op de andere dagen was dat “${MOODS[Math.round(best.wo)].toLowerCase()}”.`,
     };
@@ -872,6 +873,436 @@ function DisclaimerModal({ open, onClose }) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   Lumi — AI-assistent (demo)
+   Lumi is niet gekoppeld aan een taalmodel: alle teksten worden met
+   eenvoudige regels uit de gegevens van de demo opgebouwd. Bij woorden
+   die op een crisis wijzen, verwijst Lumi altijd door naar het team.
+   ════════════════════════════════════════════════════════════════ */
+
+const LUMI = { name: "Lumi", tagline: "AI-assistent · demo" };
+const MOOD_PHRASE = ["heel slecht", "niet goed", "redelijk", "goed", "heel goed"];
+const ACT_VERB = {
+  Wandelen: "ging wandelen", Groepsactiviteit: "meedeed aan een groepsactiviteit", Gesprek: "een gesprek had",
+  Lezen: "las", Rusten: "rustte", Creatief: "creatief bezig was", "Samen eten": "samen at", Muziek: "naar muziek luisterde",
+};
+const LUMI_CHIPS = ["Wat staat er nog op de planning?", "Hoe was mijn week?", "Tips om te ontspannen", "Ik wil met iemand praten"];
+const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+
+function useTypewriter(text, runKey = 0) {
+  const reduce = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const [n, setN] = useState(() => (reduce ? text.length : 0));
+  useEffect(() => {
+    if (reduce) { setN(text.length); return undefined; }
+    setN(0);
+    let i = 0;
+    const id = setInterval(() => {
+      i += 3;
+      setN(Math.min(i, text.length));
+      if (i >= text.length) clearInterval(id);
+    }, 16);
+    return () => clearInterval(id);
+  }, [text, runKey, reduce]);
+  return text.slice(0, n);
+}
+
+function LumiOrb({ size = 36 }) {
+  return (
+    <span className="lumi-orb" style={{ width: size, height: size }} aria-hidden="true">
+      <Icon name="sparkles" size={Math.round(size * 0.5)} stroke={1.8} />
+    </span>
+  );
+}
+
+function AiCard({ title, subtitle, tools, children, className, compact }) {
+  return (
+    <section className={cx("ai", compact && "ai--compact", className)} aria-label={`${title}, AI-assistent`}>
+      <div className="ai__inner">
+        <header className="ai__head">
+          <LumiOrb size={compact ? 30 : 36} />
+          <div className="ai__titles">
+            <p className="ai__title">{title}<span className="ai__chip">AI</span></p>
+            {subtitle && <p className="ai__sub">{subtitle}</p>}
+          </div>
+          {tools && <div className="ai__tools">{tools}</div>}
+        </header>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/* Tekst die verschijnt alsof Lumi hem schrijft; schermlezers krijgen meteen de volledige tekst. */
+function AiText({ text, runKey, className }) {
+  const typed = useTypewriter(text, runKey);
+  return (
+    <p className={cx("ai__text", className)}>
+      <span aria-hidden="true">{typed}{typed.length < text.length && <span className="ai__caret" />}</span>
+      <span className="sr-only">{text}</span>
+    </p>
+  );
+}
+
+function nextScheduleItems(now, count = 3) {
+  const mins = now.getHours() * 60 + now.getMinutes();
+  return SCHEDULE.filter((it) => toMinutes(it.time) > mins).slice(0, count);
+}
+
+/* Wat nu bezig is (enkel groepsactiviteiten met een plaats, geen "avondrust" e.d.). */
+function currentScheduleItem(now) {
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const i = SCHEDULE.findIndex((it, k) => mins >= toMinutes(it.time) && (!SCHEDULE[k + 1] || mins < toMinutes(SCHEDULE[k + 1].time)));
+  return i >= 0 && SCHEDULE[i].where ? SCHEDULE[i] : null;
+}
+
+function weekEntries(log, now, n = 7) {
+  return lastDays(n, now).map((d) => log.find((e) => dayKey(e.at) === dayKey(d))).filter(Boolean);
+}
+
+function buildDayBrief(log, now, todayEntry) {
+  const { greeting } = daypart(now);
+  const week = weekEntries(log, now);
+  const avg = average(week.map((e) => e.mood));
+  const good = week.filter((e) => e.mood >= 3).length;
+  const insight = findInsight(week);
+  const next = nextScheduleItems(now, 1)[0];
+  const parts = [`${greeting} ${SELF.firstName}.`];
+  if (avg != null) parts.push(`Je stemming was deze week meestal “${MOODS[Math.round(avg)].toLowerCase()}”${good ? `, met ${good} ${good === 1 ? "goede dag" : "goede dagen"}` : ""}.`);
+  if (insight?.activity) parts.push(`Op dagen dat je ${ACT_VERB[insight.activity] || insight.activity.toLowerCase()}, ging het vaak beter.`);
+  parts.push(todayEntry ? "Je check-in van vandaag staat al in je dossier." : "Je check-in van vandaag staat nog open.");
+  if (next) parts.push(`Om ${next.time} staat ${lowerFirst(next.title)} op de planning.`);
+  return parts.join(" ");
+}
+
+function buildWeekPoints(entries) {
+  if (entries.length < 2) return ["Er zijn nog te weinig check-ins om iets te zeggen. Na een paar dagen kan ik je meer vertellen."];
+  const pts = [];
+  const half = Math.floor(entries.length / 2);
+  const d = average(entries.slice(half).map((e) => e.mood)) - average(entries.slice(0, half).map((e) => e.mood));
+  pts.push(d >= 0.4 ? "Je stemming ging de laatste dagen iets omhoog." : d <= -0.4 ? "Je stemming ging de laatste dagen iets omlaag." : "Je stemming bleef ongeveer gelijk.");
+  const counts = {};
+  entries.forEach((e) => { const v = e.emfi.E; if (v && v !== DONT_KNOW) counts[v] = (counts[v] || 0) + 1; });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  if (top) pts.push(`Het gevoel dat het vaakst terugkwam: ${top[0].toLowerCase()} (${top[1]}×).`);
+  const ins = findInsight(entries);
+  if (ins) pts.push(`${ins.title}.`);
+  pts.push(`Iets om te bespreken met ${STAFF_USER.firstName}: wat helpt jou op de dagen dat het minder gaat?`);
+  return pts;
+}
+
+function LumiToday({ log, now, todayEntry, onChat }) {
+  const text = buildDayBrief(log, now, todayEntry);
+  return (
+    <AiCard title={LUMI.name} subtitle="Je dag in het kort" className="ai--patient">
+      <AiText text={text} />
+      <div className="ai__chips">
+        <button type="button" className="ai__ask" onClick={() => onChat()}><Icon name="chat" size={16} />Praat met {LUMI.name}</button>
+        <button type="button" className="ai__q" onClick={() => onChat("Tips om te ontspannen")}>Tips om te ontspannen</button>
+      </div>
+    </AiCard>
+  );
+}
+
+function LumiWeek({ entries, range, onChat }) {
+  const points = buildWeekPoints(entries);
+  return (
+    <AiCard title={LUMI.name} subtitle={`Samenvatting van ${range} dagen`} className="ai--patient">
+      <ul className="ai__points">
+        {points.map((t) => <li key={t}>{t}</li>)}
+      </ul>
+      <div className="ai__chips">
+        <button type="button" className="ai__ask" onClick={() => onChat("Hoe was mijn week?")}><Icon name="chat" size={16} />Vraag {LUMI.name} meer</button>
+      </div>
+      <p className="ai__fine">{LUMI.name} kan zich vergissen en ziet niet alles. Bespreek wat belangrijk is met je begeleider.</p>
+    </AiCard>
+  );
+}
+
+const normText = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+function lumiReply(raw, ctx) {
+  const t = normText(raw);
+  const has = (re) => re.test(t);
+  const week = weekEntries(ctx.log, ctx.now);
+
+  if (has(/zelfmoord|suicid|zelfdoding|dood (wil|willen|gaan|zijn)|niet meer (leven|verder)|een einde aan|mezelf (pijn|iets aan)|snijden|onveilig|crisis|noodgeval|kan (het )?niet meer|help me/)) {
+    return {
+      urgent: true,
+      text: "Dit klinkt belangrijk, en je hoeft hier niet alleen mee te blijven. Ik ben geen hulpverlener. Vraag nu een begeleider of spreek meteen iemand van het team aan. Buiten het ziekenhuis kan je altijd bellen naar de Zelfmoordlijn: 1813.",
+      actions: [{ id: "call", label: "Vraag nu een begeleider" }],
+    };
+  }
+  if (has(/\b(hoi|hallo|hey|hai|hello|goeiemorgen|goedemorgen|goedemiddag|goedenavond|dag lumi)\b/)) {
+    return { text: `Hoi ${SELF.firstName}! Waar kan ik je mee helpen?`, chips: LUMI_CHIPS };
+  }
+  if (has(/\b(bedankt|dankje|dankjewel|dank je|merci|thanks|thx)\b/)) {
+    return { text: "Graag gedaan. Ik ben er als je nog iets wil vragen." };
+  }
+  if (has(/stress|gespannen|angst|\bbang\b|onrust|piek|paniek|\bdruk\b|prikkel|ontspan|tot rust|zenuw/)) {
+    return {
+      text: "Dat klinkt vermoeiend. Wat vaak helpt: even rustig ademen, 4 tellen in en 6 tellen uit. In je signaleringsplan staat ook dat een rondje in de tuin of muziek met je koptelefoon jou helpt.",
+      actions: [{ id: "breathe", label: "Start de ademoefening" }],
+      chips: ["Wat staat er nog op de planning?"],
+    };
+  }
+  if (has(/\b(slaap|slapen|sliep|nacht|wakker|moe|vermoeid)\b/)) {
+    const s = average(week.filter((e) => e.sleep).map((e) => e.sleep));
+    return {
+      text: `${s != null ? `Je sliep deze week gemiddeld “${SLEEP[Math.round(s)].toLowerCase()}”. ` : ""}Een vast avondritueel kan helpen: een warme douche, het laatste halfuur geen scherm, en elke avond rond dezelfde tijd naar bed. Blijf je slecht slapen? Bespreek het dan met je begeleider.`,
+      chips: ["Tips om te ontspannen"],
+    };
+  }
+  if (has(/week|verloop|hoe ging|stemming|hoe gaat het met mij/)) {
+    return { text: buildWeekPoints(week).slice(0, 3).join(" "), chips: ["Wat staat er nog op de planning?"] };
+  }
+  if (has(/eten|honger|maaltijd|avondmaal|ontbijt|middagmaal/)) {
+    return { text: "Ontbijt is om 08:00, middagmaal om 12:00 en avondmaal om 18:00, in de leefruimte." };
+  }
+  if (has(/planning|vandaag|programma|activiteit|straks|wat staat|wat is er|agenda/)) {
+    const next = nextScheduleItems(ctx.now);
+    const cur = currentScheduleItem(ctx.now);
+    const nowText = cur ? `Nu bezig: ${lowerFirst(cur.title)} ${cur.where}. ` : "";
+    return {
+      text: next.length
+        ? `${nowText}${cur ? "Daarna" : "Straks"} op de planning: ${joinNl(next.map((it) => `${it.time} ${lowerFirst(it.title)}${it.sub ? ` (${lowerFirst(it.sub)})` : ""}`))}.`
+        : `${nowText}Voor vandaag staat er verder niets meer op de planning. Een goed moment om tot rust te komen.`,
+    };
+  }
+  if (has(/verveel|saai|niks te doen|niets te doen/)) {
+    const cur = currentScheduleItem(ctx.now);
+    const next = nextScheduleItems(ctx.now, 1)[0];
+    const lead = cur ? `Nu is er ${lowerFirst(cur.title)} ${cur.where}, je mag gerust aansluiten. ` : next ? `Om ${next.time} is er ${lowerFirst(next.title)}. ` : "";
+    return { text: `${lead}Of probeer iets uit je signaleringsplan: een rondje in de tuin, muziek luisteren of een paar bladzijden lezen.` };
+  }
+  if (has(/bezoek|familie|\bzus\b|\bbroer\b|mama|papa|vriend/)) {
+    return { text: "Bezoek is welkom elke dag tussen 14:00 en 20:00, in de cafetaria of in de tuin. Spreek het wel even af met je begeleider." };
+  }
+  if (has(/check-?in|invullen/)) {
+    return ctx.todayEntry
+      ? { text: `Je check-in van vandaag is al verstuurd om ${fmtTime(ctx.todayEntry.at)}. Goed bezig.` }
+      : { text: "Je check-in van vandaag staat nog open. Het duurt ongeveer een minuut.", actions: [{ id: "checkin", label: "Doe nu je check-in" }] };
+  }
+  if (has(/praten|gesprek|begeleider|sofie|iemand/)) {
+    return {
+      text: "Wil je met iemand van het team praten? Is het niet dringend, dan zet ik een gespreksvraag klaar. Is het wel dringend, vraag dan nu een begeleider.",
+      actions: [{ id: "talk", label: "Zet een gespreksvraag klaar" }, { id: "call", label: "Vraag nu een begeleider" }],
+    };
+  }
+  return {
+    text: "Dank je om dat te delen. Ik ben een digitale assistent, dus ik begrijp niet alles even goed. Wil je dit liever met iemand van het team bespreken?",
+    actions: [{ id: "talk", label: "Zet een gespreksvraag klaar" }],
+    chips: LUMI_CHIPS,
+  };
+}
+
+function LumiChat({ initial, ctx, onClose, onAction }) {
+  const [msgs, setMsgs] = useState(() => [{
+    id: "hello", from: "lumi",
+    text: `Hoi ${SELF.firstName}, ik ben ${LUMI.name} 👋 Ik help je met kleine vragen over je dag, je verloop of om even tot rust te komen. Ik ben geen hulpverlener: voor iets dringends vraag je meteen een begeleider.`,
+    chips: LUMI_CHIPS,
+  }]);
+  const [input, setInput] = useState("");
+  const [typing, setTyping] = useState(false);
+  const listRef = useRef(null);
+  const inputRef = useRef(null);
+  const timers = useRef([]);
+  const tid = useId();
+  const iid = useId();
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+
+  useBackHandler(true, () => { onClose(); return false; });
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const later = (fn, ms) => { timers.current.push(setTimeout(fn, ms)); };
+  const push = (m) => setMsgs((list) => [...list, { id: `${Date.now()}-${Math.random()}`, ...m }]);
+
+  const send = (text) => {
+    const clean = text.trim();
+    if (!clean) return;
+    push({ from: "me", text: clean });
+    setInput("");
+    setTyping(true);
+    const reply = lumiReply(clean, ctxRef.current);
+    later(() => { push({ from: "lumi", ...reply }); setTyping(false); }, reply.urgent ? 450 : 650 + Math.min(900, reply.text.length * 6));
+  };
+
+  const act = (id) => {
+    const result = onAction(id);
+    if (result) later(() => push({ from: "lumi", text: result }), 250);
+  };
+
+  useEffect(() => {
+    if (initial) send(initial);
+    else inputRef.current?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [msgs, typing]);
+
+  const last = msgs[msgs.length - 1];
+  const chips = !typing && last?.from === "lumi" && last.chips?.length ? last.chips : null;
+
+  return (
+    <div className="chat" role="dialog" aria-modal="true" aria-labelledby={tid}>
+      <header className="chat__head">
+        <button type="button" className="iconbtn iconbtn--plain" onClick={onClose} aria-label="Terug"><Icon name="chevronLeft" size={22} /></button>
+        <LumiOrb size={38} />
+        <div className="chat__who">
+          <p className="chat__name" id={tid}>{LUMI.name}<span className="ai__chip">AI</span></p>
+          <p className="chat__sub">{LUMI.tagline}</p>
+        </div>
+      </header>
+
+      <div className={cx("chat__safety", ctx.callAt && "is-active")}>
+        <Icon name={ctx.callAt ? (ctx.callAck ? "checkCircle" : "bell") : "info"} size={18} />
+        {ctx.callAt ? (
+          <p>{ctx.callAck ? `${STAFF_USER.firstName} komt naar je toe.` : `Je vroeg om ${fmtTime(ctx.callAt)} een begeleider. Iemand komt zo snel mogelijk.`}</p>
+        ) : (
+          <>
+            <p>{LUMI.name} is er voor kleine vragen, niet voor noodgevallen.</p>
+            <button type="button" className="btn btn--xs chat__urgent" onClick={() => act("call")}>Vraag een begeleider</button>
+          </>
+        )}
+      </div>
+
+      <div className="chat__list" ref={listRef} aria-live="polite">
+        {msgs.map((m) => (
+          <div key={m.id} className={cx("msg", `msg--${m.from}`, m.urgent && "msg--urgent")}>
+            {m.from === "lumi" && <span className="sr-only">{LUMI.name}: </span>}
+            <p>{m.text}</p>
+            {m.actions?.length > 0 && (
+              <div className="msg__actions">
+                {m.actions.map((a) => (
+                  <button key={a.id} type="button" className={cx("btn btn--sm", a.id === "call" ? "btn--primary" : "btn--secondary")} onClick={() => act(a.id)}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {typing && <div className="msg msg--lumi msg--typing" aria-label={`${LUMI.name} typt`}><i /><i /><i /></div>}
+      </div>
+
+      {chips && (
+        <div className="chat__chips">
+          {chips.map((c) => <button key={c} type="button" className="ai__q" onClick={() => send(c)}>{c}</button>)}
+        </div>
+      )}
+
+      <form className="chat__form" onSubmit={(e) => { e.preventDefault(); send(input); }}>
+        <label className="sr-only" htmlFor={iid}>Bericht aan {LUMI.name}</label>
+        <input id={iid} ref={inputRef} className="chat__input" value={input} onChange={(e) => setInput(e.target.value)}
+          placeholder={`Typ een bericht aan ${LUMI.name}…`} autoComplete="off" enterKeyHint="send" />
+        <button type="submit" className="chat__send" aria-label="Verstuur" disabled={!input.trim()}><Icon name="send" size={18} /></button>
+      </form>
+    </div>
+  );
+}
+
+/* Lumi voor de begeleiding */
+function suggestionFor(p) {
+  const has = (prefix) => p.a.signals.some((s) => s.text.startsWith(prefix));
+  if (p.callAt && !p.callAck) return "Ga zo snel mogelijk langs: vraagt nu een begeleider via de app.";
+  if (!p.checkin) return p.remindedAt ? "Loop even langs; de herinnering is al verstuurd." : "Stuur een herinnering of loop even langs.";
+  if (has("Heel lage stemming")) return "Plan vandaag nog een kort individueel contact en check de veiligheid.";
+  if (has("Lage stemming, ")) return "Vraag in een kort gesprek hoe de laatste dagen liepen en wat nu zou helpen.";
+  if (has("Overprikkeld")) return "Bied een prikkelarme plek aan en houd het gesprek kort en concreet.";
+  if (has("Angst en piekeren")) return "Help met een korte ontspanningsoefening en bespreek wat zorgen geeft.";
+  if (has("Weinig sociaal contact")) return "Nodig uit voor een rustige groepsactiviteit, zonder druk.";
+  if (has("Slechte nachtrust")) return "Bespreek de nachtrust en het avondritueel.";
+  if (has("Meldt pijn")) return "Vraag naar de pijn en overleg zo nodig met de verpleging of arts.";
+  if (p.checkin.talk) return "Plan het gevraagde gesprek in.";
+  return "Geen bijzondere actie nodig; een kort contactmoment volstaat.";
+}
+
+function lumiPatientSummary(p) {
+  const c = p.checkin;
+  const fn = firstName(p.name);
+  if (!c) return `${fn} vulde vandaag nog geen check-in in. Suggestie: ${lowerFirst(suggestionFor(p))}`;
+  const e = [c.emfi.E, c.emfi.M].filter((v) => v && v !== DONT_KNOW).map((v) => v.toLowerCase());
+  let s = `${fn} geeft aan dat het ${MOOD_PHRASE[c.mood]} gaat${e.length ? ` (${e.join(", ")})` : ""}`;
+  if (p.a.streak >= 2) s += `, en de stemming is al ${p.a.streak} dagen laag`;
+  return `${s}. Suggestie: ${lowerFirst(suggestionFor(p))}`;
+}
+
+function buildConceptNote(p) {
+  const c = p.checkin;
+  const fn = firstName(p.name);
+  if (!c) {
+    return `${fn} vulde vandaag nog geen check-in in.${p.remindedAt ? ` Herinnering verstuurd om ${fmtTime(p.remindedAt)}.` : ""} Voorstel: even langsgaan op ${p.room.toLowerCase()}.`;
+  }
+  const emfi = EMFI.filter((d) => c.emfi[d.key]).map((d) => `${d.name.toLowerCase()}: ${c.emfi[d.key].toLowerCase()}`).join(", ");
+  return [
+    `${fn} gaf in de check-in van ${fmtTime(c.at)} aan dat het ${MOOD_PHRASE[c.mood]} gaat${emfi ? ` (${emfi})` : ""}.`,
+    c.sleep ? `Nachtrust: ${SLEEP[c.sleep].toLowerCase()}.` : "",
+    c.thought && !c.thoughtPrivate ? `Eigen woorden: “${c.thought}”` : "",
+    p.a.signals.length ? `Signalen: ${p.a.signals.map((s) => lowerFirst(s.text)).join(", ")}.` : "",
+    c.talk ? "Vraagt een gesprek." : "",
+    `Voorstel: ${lowerFirst(suggestionFor(p))}`,
+  ].filter(Boolean).join(" ");
+}
+
+function buildBriefing(rows) {
+  const checked = rows.filter((r) => r.checkin).length;
+  const crit = rows.filter((r) => r.a.level === "critical");
+  const att = rows.filter((r) => r.a.level === "attention");
+  const talk = rows.filter((r) => r.checkin?.talk);
+  const open = rows.filter((r) => !r.checkin);
+  const names = (list) => joinNl(list.map((r) => firstName(r.name)));
+  const intro = [
+    `${checked} van de ${rows.length} patiënten checkten vandaag in.`,
+    crit.length ? `${names(crit)} ${crit.length === 1 ? "heeft" : "hebben"} directe opvolging nodig${att.length ? `, ${att.length === 1 ? "1 andere patiënt vraagt" : `${att.length} anderen vragen`} aandacht` : ""}.` : att.length ? `${att.length} ${att.length === 1 ? "patiënt vraagt" : "patiënten vragen"} aandacht.` : "Niemand heeft directe opvolging nodig.",
+    talk.length ? `Gespreksvragen: ${names(talk)}.` : "",
+    open.length ? `Nog geen check-in: ${names(open)}.` : "",
+  ].filter(Boolean).join(" ");
+  const points = [...crit, ...att].slice(0, 4).map((p) => ({
+    id: p.id, name: p.name,
+    text: p.a.signals.slice(0, 2).map((s) => s.text).join(" · "),
+    tip: suggestionFor(p),
+  }));
+  return { intro, points };
+}
+
+function LumiBriefing({ rows, now, onSelect }) {
+  const [gen, setGen] = useState(0);
+  const [open, setOpen] = useState(true);
+  const brief = useMemo(() => buildBriefing(rows), [rows]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const at = useMemo(() => new Date(), [gen]);
+  return (
+    <AiCard title={`${LUMI.name}-briefing`} subtitle={`Samenvatting van je dienst · ${fmtTime(at)}`} className="ai--staff"
+      tools={(
+        <>
+          <button type="button" className="ai__tool" onClick={() => setGen((g) => g + 1)} title="Opnieuw genereren" aria-label="Vernieuw"><Icon name="sync" size={15} /><span className="ai__toollabel">Vernieuw</span></button>
+          <button type="button" className="ai__tool" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "Verberg" : "Toon"}</button>
+        </>
+      )}>
+      {open && (
+        <>
+          <AiText text={brief.intro} runKey={gen} />
+          {brief.points.length > 0 && (
+            <ul className="ai__points ai__points--grid" key={gen}>
+              {brief.points.map((pt) => (
+                <li key={pt.id}>
+                  <span>
+                    <button type="button" className="ai__name" onClick={() => onSelect(pt.id)} title={pt.text}>{pt.name}</button>
+                    <span className="ai__signal"> · {pt.tip}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="ai__fine">{LUMI.name} is een AI-assistent (demo) en maakt suggesties op basis van de check-ins. Weeg altijd zelf af, samen met het team.</p>
+        </>
+      )}
+    </AiCard>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    App
    ════════════════════════════════════════════════════════════════ */
 
@@ -1045,9 +1476,10 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
   const [flow, setFlow] = useState(null);
   const [menu, setMenu] = useState(false);
   const [disc, setDisc] = useState(false);
+  const [chat, setChat] = useState(null);
   const mainRef = useRef(null);
   const discTitle = useId();
-  useInert(mainRef, (!!flow && !simple) || menu || disc);
+  useInert(mainRef, (!!flow && !simple) || (!!chat && !simple) || menu || disc);
 
   const draft = store.draft;
   const update = useCallback((p) => patch((s) => ({ draft: { ...s.draft, ...p } })), [patch]);
@@ -1065,6 +1497,22 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
   const remindedAt = isToday(store.reminded[SELF.id], now) && !todayEntry ? store.reminded[SELF.id] : null;
 
   const openFlow = (startStep = 0) => setFlow({ startStep });
+  const openChat = (question) => setChat({ q: question || null, key: Date.now() });
+  const chatAction = (id) => {
+    if (id === "call") {
+      if (callAt) return `Je vraag is al doorgegeven om ${fmtTime(callAt)}. Iemand van het team komt naar je toe.`;
+      call();
+      return "Ik heb je vraag doorgegeven. Iemand van het team komt zo snel mogelijk naar je toe.";
+    }
+    if (id === "talk") {
+      if (todayEntry) return "Je check-in van vandaag is al verstuurd. Wil je vandaag nog praten? Vraag dan gerust een begeleider.";
+      update({ talk: true });
+      return "Ik heb “Ik wil vandaag graag een gesprek” aangezet in je check-in. Je begeleider ziet het zodra je de check-in verstuurt.";
+    }
+    if (id === "breathe") { setChat(null); setTab("calm"); }
+    if (id === "checkin") { setChat(null); openFlow(0); }
+    return null;
+  };
 
   return (
     <div className="app" data-mode={simple ? "simple" : "regular"}>
@@ -1092,9 +1540,9 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
                   callAt={callAt} callAck={callAck} onStart={() => openFlow(0)}
                   onQuickMood={(v) => { update({ mood: v }); openFlow(1); }}
                   onSimple={() => setSimple(true)} onHistory={() => setTab("history")} onCalm={() => setTab("calm")}
-                  onDisclaimer={inSimulator ? null : () => setDisc(true)} />
+                  onDisclaimer={inSimulator ? null : () => setDisc(true)} onChat={openChat} />
               )}
-              {tab === "history" && <HistoryTab log={selfLog} now={now} />}
+              {tab === "history" && <HistoryTab log={selfLog} now={now} onChat={openChat} />}
               {tab === "calm" && <CalmTab callAt={callAt} callAck={callAck} onCall={call} onCancelCall={cancelCall} />}
             </div>
           )}
@@ -1115,6 +1563,11 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
           </nav>
         )}
       </div>
+
+      {chat && !simple && (
+        <LumiChat key={chat.key} initial={chat.q} onClose={() => setChat(null)} onAction={chatAction}
+          ctx={{ now, log: selfLog, todayEntry, callAt, callAck }} />
+      )}
 
       {flow && !simple && (
         <CheckinFlow draft={draft} update={update} setEmfi={setEmfi} startStep={flow.startStep}
@@ -1182,7 +1635,7 @@ function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset, onDiscl
 
 /* ── Vandaag ───────────────────────────────────────────────────── */
 
-function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck, onStart, onQuickMood, onSimple, onHistory, onCalm, onDisclaimer }) {
+function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck, onStart, onQuickMood, onSimple, onHistory, onCalm, onDisclaimer, onChat }) {
   const { greeting, part } = daypart(now);
   const started = draft.mood !== null || Object.keys(draft.emfi).length > 0;
   return (
@@ -1255,14 +1708,16 @@ function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck
             </section>
           )}
 
+          <LumiToday log={selfLog} now={now} todayEntry={todayEntry} onChat={onChat} />
+        </div>
+        <div className="col">
           <section className="block">
             <div className="block__head">
               <h2 className="block__title">Vandaag op {ORG.ward}</h2>
             </div>
             <Schedule now={now} />
           </section>
-        </div>
-        <div className="col">
+
           <section className="block">
             <div className="block__head">
               <h2 className="block__title">Jouw week</h2>
@@ -1342,7 +1797,7 @@ function WeekFaces({ log, now }) {
 
 /* ── Verloop ───────────────────────────────────────────────────── */
 
-function HistoryTab({ log, now }) {
+function HistoryTab({ log, now, onChat }) {
   const [range, setRange] = useState(7);
   const days = lastDays(range, now);
   const entries = days.map((d) => log.find((e) => dayKey(e.at) === dayKey(d)) || null);
@@ -1350,7 +1805,6 @@ function HistoryTab({ log, now }) {
   const points = days.map((date, i) => ({ date, mood: entries[i]?.mood ?? null }));
   const avg = average(done.map((e) => e.mood));
   const sleepAvg = average(done.filter((e) => e.sleep).map((e) => e.sleep));
-  const insight = findInsight(done);
   return (
     <div className="tab-page">
       <header className="page-head">
@@ -1364,6 +1818,8 @@ function HistoryTab({ log, now }) {
         ))}
       </div>
 
+      <LumiWeek entries={done} range={range} onChat={onChat} />
+
       <div className="cols">
         <div className="col">
           <section className="card pad">
@@ -1374,17 +1830,6 @@ function HistoryTab({ log, now }) {
             </dl>
             <MoodChart points={points} />
           </section>
-
-          {insight && (
-            <section className="insight">
-              <span className="insight__icon"><Icon name="sparkles" size={20} /></span>
-              <div>
-                <p className="insight__title">{insight.title}</p>
-                <p className="insight__text">{insight.text}</p>
-                <p className="insight__fine">Dat wil niet zeggen dat het één het ander veroorzaakt. Wel iets om eens over te praten met je begeleider.</p>
-              </div>
-            </section>
-          )}
         </div>
         <div className="col">
           <section className="block">
@@ -2171,6 +2616,13 @@ function SimpleDone({ entry, speech, titleRef, bodyRef, onDone }) {
    Begeleiding — desktopwerkplek
    ════════════════════════════════════════════════════════════════ */
 
+const GROUPS = [
+  { id: "critical", label: "Direct opvolgen" },
+  { id: "attention", label: "Opvolgen" },
+  { id: "stable", label: "Stabiel" },
+  { id: "none", label: "Nog geen check-in" },
+];
+
 function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
   const [page, setPage] = useState("overview");
   const [filter, setFilter] = useState("all");
@@ -2195,6 +2647,7 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
   const q = query.trim().toLowerCase();
   const active = FILTERS.find((f) => f.id === filter);
   const visible = rows.filter(active.test).filter((r) => !q || r.name.toLowerCase().includes(q) || r.room.toLowerCase().includes(q));
+  const groups = GROUPS.map((g) => ({ ...g, rows: visible.filter((r) => r.a.level === g.id) })).filter((g) => g.rows.length);
   const selected = wide
     ? visible.find((r) => r.id === selectedId) || visible[0] || null
     : rows.find((r) => r.id === selectedId) || null;
@@ -2223,15 +2676,21 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
     if (wide) setSelectedId(btns[j].dataset.id);
   };
 
+  const selectFromBrief = (id) => {
+    setFilter("all");
+    setQuery("");
+    setSelectedId(id);
+    requestAnimationFrame(() => listRef.current?.querySelector(`[data-id="${id}"]`)?.focus({ preventScroll: false }));
+  };
+
   const actions = {
     follow: (id) => patch((s) => ({ followed: { ...s.followed, [id]: isToday(s.followed[id], new Date()) ? null : new Date() } })),
     remind: (id) => patch((s) => ({ reminded: { ...s.reminded, [id]: new Date() } })),
     ack: () => patch({ callAck: new Date() }),
-    note: (id, text) => patch((s) => ({ notes: { ...s.notes, [id]: [...(s.notes[id] || []), { text, at: new Date(), author: STAFF_USER.name }] } })),
+    note: (id, text, ai) => patch((s) => ({ notes: { ...s.notes, [id]: [...(s.notes[id] || []), { text, at: new Date(), author: STAFF_USER.name, ai: !!ai }] } })),
   };
 
-  const critical = rows.filter((r) => r.a.level === "critical").length;
-  const attention = rows.filter((r) => r.a.level === "attention").length;
+  const signalCount = rows.filter((r) => r.a.level === "critical" || r.a.level === "attention").length;
 
   return (
     <div className="staff">
@@ -2240,10 +2699,10 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
           <Logo size={38} />
           <p className="brand__text"><span className="brand__name">Zilverlinde</span><span className="brand__ward">{ORG.ward}</span></p>
         </div>
-        <nav className="sb__nav" aria-label="Werkplek">
+        <nav className="sb__nav" aria-label="Begeleidersportaal">
           <button type="button" className="sb__link" aria-current={page === "overview" ? "page" : undefined} onClick={() => setPage("overview")}>
             <Icon name="grid" size={18} />Overzicht
-            {critical + attention > 0 && <span className="sb__badge" title="Patiënten met signalen">{critical + attention}</span>}
+            {signalCount > 0 && <span className="sb__badge" title="Patiënten met signalen">{signalCount}</span>}
           </button>
           <button type="button" className="sb__link" aria-current={page === "handover" ? "page" : undefined} onClick={() => setPage("handover")}>
             <Icon name="swap" size={18} />Overdracht
@@ -2252,16 +2711,16 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
         <div className="sb__spacer" />
         <button type="button" className="sb__demo" onClick={toPatient}>
           <Icon name="phone" size={18} />
-          <span>Open patiënt-app<small>Demo</small></span>
+          <span className="sb__demotext">Open patiënt-app<small>Demo</small></span>
         </button>
         <p className="sb__sync" title={`Laatste synchronisatie om ${fmtTime(lastSync)}`}>
           <span className="sync__dot" aria-hidden="true" />
-          <span>Gesynchroniseerd met <b>{ORG.epd}</b><small>{capitalize(relTime(lastSync, now))}</small></span>
+          <span className="sb__synctext">Gesynchroniseerd met <b>{ORG.epd}</b><small>{capitalize(relTime(lastSync, now))}</small></span>
         </p>
         <DisclaimerButton className="sb__disc" onClick={() => setDisc(true)} />
         <div className="sb__user">
           <Avatar name={STAFF_USER.name} size={36} />
-          <span><b>{STAFF_USER.name}</b><small>{STAFF_USER.role} · {shiftName(now).toLowerCase()}</small></span>
+          <span className="sb__usertext"><b>{STAFF_USER.name}</b><small>{STAFF_USER.role} · {shiftName(now).toLowerCase()}</small></span>
         </div>
       </aside>
 
@@ -2281,22 +2740,35 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
               </label>
             </header>
             <div className="sm__content">
-              <Kpis rows={rows} />
-              <div className="toolbar">
-                <div className="filters" role="group" aria-label="Filter patiënten">
-                  {FILTERS.map((f) => (
-                    <button key={f.id} type="button" className="fchip" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
-                      {f.label}<span className="fchip__n">{rows.filter(f.test).length}</span>
-                    </button>
-                  ))}
-                </div>
-                <MoodLegend />
-              </div>
+              <StatStrip rows={rows} />
+              <LumiBriefing rows={rows} now={now} onSelect={selectFromBrief} />
               <div className="split">
-                <div className="plist" ref={listRef} onKeyDown={onListKey} aria-label="Patiënten, gesorteerd op prioriteit" role="group">
-                  {visible.length ? visible.map((p) => (
-                    <PatientRow key={p.id} p={p} now={now} selected={wide && selected?.id === p.id}
-                      onSelect={() => setSelectedId(p.id)} onRemind={() => actions.remind(p.id)} />
+                <div className="ptable" ref={listRef} onKeyDown={onListKey}>
+                  <div className="toolbar">
+                    <div className="filters" role="group" aria-label="Filter patiënten">
+                      {FILTERS.map((f) => (
+                        <button key={f.id} type="button" className="fchip" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
+                          {f.label}<span className="fchip__n">{rows.filter(f.test).length}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <MoodLegend />
+                  </div>
+                  <div className="ptable__head" aria-hidden="true">
+                    <span>Patiënt</span><span>Stemming</span><span>7 dagen</span><span>Aandachtspunt</span>
+                  </div>
+                  {groups.length ? groups.map((g) => (
+                    <section key={g.id} className={cx("pgroup", `pgroup--${g.id}`)} aria-labelledby={`grp-${g.id}`}>
+                      <h2 className="pgroup__title" id={`grp-${g.id}`}>
+                        <span className="pgroup__dot" aria-hidden="true" />{g.label}<span className="pgroup__n">{g.rows.length}</span>
+                      </h2>
+                      <ul className="pgroup__list">
+                        {g.rows.map((p) => (
+                          <PatientRow key={p.id} p={p} now={now} selected={wide && selected?.id === p.id}
+                            onSelect={() => setSelectedId(p.id)} onRemind={() => actions.remind(p.id)} />
+                        ))}
+                      </ul>
+                    </section>
                   )) : (
                     <div className="empty">
                       <Icon name="search" size={28} />
@@ -2332,79 +2804,54 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
   );
 }
 
-function Kpis({ rows }) {
+function StatStrip({ rows }) {
   const checked = rows.filter((r) => r.checkin);
-  const open = rows.filter((r) => !r.checkin);
   const critical = rows.filter((r) => r.a.level === "critical");
   const attention = rows.filter((r) => r.a.level === "attention");
-  const talkers = rows.filter((r) => r.checkin?.talk || (r.callAt && !r.callAck));
   const callers = rows.filter((r) => r.callAt && !r.callAck);
+  const talkers = rows.filter((r) => r.checkin?.talk || (r.callAt && !r.callAck));
   const moods = checked.map((r) => r.checkin.mood);
   const avg = average(moods);
   const avgYesterday = average(rows.map((r) => r.history[r.history.length - 1]).filter((v) => v != null));
   const delta = avg !== null && avgYesterday !== null ? avg - avgYesterday : null;
   const dist = [0, 1, 2, 3, 4].map((v) => moods.filter((m) => m === v).length);
-  const followedCrit = critical.filter((r) => r.followedAt).length;
   return (
-    <section className="kpis" aria-label="Samenvatting van vandaag">
-      <div className="kpi">
-        <p className="kpi__label"><Icon name="checkCircle" size={16} />Check-ins vandaag</p>
-        <p className="kpi__value">{checked.length}<small> / {rows.length}</small></p>
+    <section className="stats-strip" aria-label="Kerncijfers van vandaag">
+      <div className="stat">
+        <p className="stat__v">{checked.length}<small> / {rows.length}</small></p>
+        <p className="stat__l">Ingecheckt</p>
         <div className="meter" role="img" aria-label={`${checked.length} van ${rows.length} patiënten hebben ingecheckt`}>
           <i style={{ width: `${(checked.length / rows.length) * 100}%` }} />
         </div>
-        <p className="kpi__sub">{open.length ? `Nog open: ${joinNl(open.map((r) => r.name))}` : "Iedereen heeft ingecheckt"}</p>
       </div>
-      <div className="kpi">
-        <p className="kpi__label"><Icon name="alert" size={16} />Direct opvolgen</p>
-        <p className="kpi__value">{critical.length}</p>
-        <p className="kpi__sub">
-          {followedCrit > 0 && `${followedCrit} al opgevolgd · `}
-          {attention.length} {attention.length === 1 ? "andere patiënt" : "andere patiënten"} met signalen
-        </p>
+      <div className="stat">
+        <p className="stat__v">{critical.length}</p>
+        <p className="stat__l"><i className="dot dot--critical" aria-hidden="true" />Direct opvolgen</p>
       </div>
-      <div className="kpi">
-        <p className="kpi__label"><Icon name="chat" size={16} />Gespreksvragen</p>
-        <p className="kpi__value">{talkers.length}</p>
-        <p className="kpi__sub">
-          {callers.length > 0 && <b className="kpi__urgent">{joinNl(callers.map((r) => firstName(r.name)))} vraagt nu een begeleider. </b>}
-          {talkers.length ? joinNl(talkers.filter((r) => !callers.includes(r)).map((r) => firstName(r.name))) : "Geen vragen vandaag"}
-        </p>
+      <div className="stat">
+        <p className="stat__v">{attention.length}</p>
+        <p className="stat__l"><i className="dot dot--attention" aria-hidden="true" />Opvolgen</p>
       </div>
-      <div className="kpi kpi--wide">
-        <p className="kpi__label"><Icon name="activity" size={16} />Stemming op de afdeling</p>
-        <div className="kpi__row">
-          <p className="kpi__value">{avg === null ? "—" : fmtNumber(avg)}<small> / 4</small></p>
+      <div className="stat">
+        <p className="stat__v">{talkers.length}{callers.length > 0 && <span className="stat__urgent">{callers.length} nu</span>}</p>
+        <p className="stat__l"><Icon name="chat" size={14} />Gespreksvragen</p>
+      </div>
+      <div className="stat stat--mood">
+        <p className="stat__v">
+          {avg === null ? "—" : fmtNumber(avg)}<small> / 4</small>
           {delta !== null && (
-            <p className={cx("delta", delta > 0.05 ? "is-up" : delta < -0.05 ? "is-down" : "is-flat")}>
-              {delta > 0.05 ? "▲" : delta < -0.05 ? "▼" : "■"} {delta > 0 ? "+" : ""}{fmtNumber(delta)} t.o.v. gisteren
-            </p>
+            <span className={cx("delta", delta > 0.05 ? "is-up" : delta < -0.05 ? "is-down" : "is-flat")}>
+              {delta > 0.05 ? "▲" : delta < -0.05 ? "▼" : "■"} {delta > 0 ? "+" : ""}{fmtNumber(delta)}
+            </span>
           )}
+        </p>
+        <p className="stat__l">Gemiddelde stemming{delta !== null && <span className="stat__hint"> · t.o.v. gisteren</span>}</p>
+        <div className="dist__bar" role="img" aria-label={`Verdeling: ${dist.map((n, v) => `${MOODS[v]} ${n}`).join(", ")}`}>
+          {moods.length === 0 && <i className="dist__empty" />}
+          {dist.map((n, v) => n > 0 && <i key={v} style={{ flexGrow: n, background: `var(--mood-${v})` }} title={`${MOODS[v]}: ${n}`} />)}
         </div>
-        <MoodDistribution dist={dist} />
       </div>
     </section>
-  );
-}
-
-function MoodDistribution({ dist }) {
-  const total = dist.reduce((s, v) => s + v, 0);
-  return (
-    <div className="dist">
-      <div className="dist__bar" role="img" aria-label={`Verdeling: ${dist.map((n, v) => `${MOODS[v]} ${n}`).join(", ")}`}>
-        {total === 0 && <i className="dist__empty" />}
-        {dist.map((n, v) => n > 0 && <i key={v} style={{ flexGrow: n, background: `var(--mood-${v})` }} title={`${MOODS[v]}: ${n}`} />)}
-      </div>
-      <ul className="dist__legend">
-        {dist.map((n, v) => (
-          <li key={v} className={cx(n === 0 && "is-zero")}>
-            <MoodFace value={v} size={18} tone />
-            <span>{MOODS[v]}</span>
-            <b>{n}</b>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
@@ -2434,51 +2881,51 @@ function PatientRow({ p, now, selected, onSelect, onRemind }) {
   const c = p.checkin;
   const a = p.a;
   const days = lastDays(7, now);
+  const main = a.signals[0];
+  const more = a.signals.length - 1;
   const fresh = p.isSelf && c && now - c.at < 15 * 60000;
   return (
-    <article className={cx("prow", `prow--${a.level}`, selected && "is-selected")} aria-current={selected ? "true" : undefined}>
-      <button type="button" className="prow__btn" data-rowbtn="" data-id={p.id} onClick={onSelect}>
-        <span className="sr-only">{p.name}, {LEVELS[a.level].label}, details openen</span>
+    <li className={cx("prow", selected && "is-selected")}>
+      <button type="button" className="prow__btn" data-rowbtn="" data-id={p.id} onClick={onSelect} aria-current={selected ? "true" : undefined}>
+        <span className="sr-only">
+          {p.name}, {p.room}, {LEVELS[a.level].label}{c ? `, stemming ${MOODS[c.mood].toLowerCase()}` : ""}{main ? `, ${main.text}` : ""}. Details openen
+        </span>
       </button>
-      <Avatar name={p.name} size={42} />
       <div className="prow__who">
-        <p className="prow__name">{p.name}</p>
-        <p className="prow__meta">
-          {p.room}{c && <> · {fmtTime(c.at)}</>}
-          {fresh && <span className="tag tag--new">Nieuw</span>}
-          {c?.mode === "simple" && <span className="tag" title="Ingevuld in de eenvoudige modus">Eenvoudig</span>}
-        </p>
+        <Avatar name={p.name} size={34} />
+        <span className="prow__id">
+          <b>{p.name}</b>
+          <small>
+            {p.room}{c && <> · {fmtTime(c.at)}</>}
+            {c?.talk && <span className="flag flag--talk" title="Wil een gesprek"><Icon name="chat" size={12} /></span>}
+            {p.notes.length > 0 && <span className="flag" title={`${p.notes.length} × rapportering vandaag`}><Icon name="pencil" size={11} /></span>}
+            {p.followedAt && <span className="flag flag--done" title={`Opgevolgd om ${fmtTime(p.followedAt)}`}><Icon name="checkCircle" size={13} /></span>}
+            {fresh && <span className="tag tag--new">Nieuw</span>}
+            {c?.mode === "simple" && <span className="tag" title="Ingevuld in de eenvoudige modus">Eenvoudig</span>}
+          </small>
+        </span>
       </div>
       <div className="prow__mood">
-        {c ? <><MoodFace value={c.mood} size={34} tone /><b>{MOODS[c.mood]}</b></> : <span className="prow__none">Nog geen check-in</span>}
+        {c ? <><MoodFace value={c.mood} size={26} tone /><span>{MOODS[c.mood]}</span></> : <span className="muted">—</span>}
       </div>
-      <div className="prow__week">
-        <WeekStrip values={[...p.history, c ? c.mood : null]} days={days} />
-      </div>
-      <div className="prow__status">
-        <StatusPill level={a.level} />
-        {p.followedAt && <span className="followed"><Icon name="checkCircle" size={13} />Opgevolgd {fmtTime(p.followedAt)}</span>}
-      </div>
-      <div className="prow__line">
-        {c ? (
-          <ul className="etags" aria-label="EMFI">
-            {EMFI.map((d) => c.emfi[d.key] && (
-              <li key={d.key} className={cx("etag", `tone-${d.key}`)}>
-                <Icon name={d.icon} size={14} /><span className="sr-only">{d.name}: </span>{c.emfi[d.key]}
-              </li>
-            ))}
-          </ul>
+      <div className="prow__week"><WeekStrip values={[...p.history, c ? c.mood : null]} days={days} /></div>
+      <div className="prow__signal">
+        {main ? (
+          <>
+            <Icon name={main.level === "critical" ? "alert" : "eye"} size={15} stroke={2.4} className={`prow__sicon prow__sicon--${main.level}`} />
+            <span className="prow__stext">{main.text}</span>
+            {more > 0 && <span className="prow__more" title={a.signals.slice(1).map((s) => s.text).join(" · ")}>+{more}</span>}
+          </>
+        ) : c ? (
+          <span className="muted">Geen bijzonderheden</span>
         ) : (
           <button type="button" className="btn btn--secondary btn--xs prow__action" onClick={onRemind} disabled={!!p.remindedAt}>
             <Icon name={p.remindedAt ? "check" : "bell"} size={14} />
-            {p.remindedAt ? `Herinnering verstuurd · ${fmtTime(p.remindedAt)}` : "Stuur herinnering"}
+            {p.remindedAt ? `Herinnerd · ${fmtTime(p.remindedAt)}` : "Stuur herinnering"}
           </button>
         )}
       </div>
-      {(a.signals.length > 0 || c?.talk) && (
-        <div className="prow__line prow__line--signals"><SignalList signals={a.signals} talk={c?.talk} limit={3} /></div>
-      )}
-    </article>
+    </li>
   );
 }
 
@@ -2498,118 +2945,154 @@ function Drawer({ open, onClose, labelledBy, children }) {
   );
 }
 
+const DETAIL_TABS = [
+  { id: "today", label: "Vandaag" },
+  { id: "week", label: "Verloop" },
+  { id: "notes", label: "Rapportering" },
+];
+
 function PatientDetail({ p, now, actions, onClose }) {
+  const [tab, setTab] = useState("today");
+  const [note, setNote] = useState("");
+  const [noteByAi, setNoteByAi] = useState(false);
   const c = p.checkin;
   const a = p.a;
   const days = lastDays(7, now);
   const points = days.map((date, i) => ({ date, mood: i < 6 ? p.history[i] : c ? c.mood : null }));
+  const tabRefs = useRef({});
+  const ids = useId();
+
+  const concept = () => { setNote(buildConceptNote(p)); setNoteByAi(true); setTab("notes"); };
+  const onTabKey = (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const i = DETAIL_TABS.findIndex((t) => t.id === tab);
+    const next = DETAIL_TABS[(i + (e.key === "ArrowRight" ? 1 : DETAIL_TABS.length - 1)) % DETAIL_TABS.length];
+    setTab(next.id);
+    tabRefs.current[next.id]?.focus();
+  };
+
   return (
     <div className="dw">
       <header className="dw__head">
-        <Avatar name={p.name} size={50} />
+        <Avatar name={p.name} size={46} />
         <div className="dw__id">
           <h2 className="dw__name" id="detail-title">{p.name}</h2>
-          <p className="dw__meta">{p.room} · {ORG.ward}</p>
+          <p className="dw__meta">
+            {p.room} · <StatusPill level={a.level} />
+            {c && <span className="dw__time"><Icon name="clock" size={13} />{fmtTime(c.at)}{c.mode === "simple" && " · eenvoudig"}</span>}
+          </p>
         </div>
         {onClose && <button type="button" className="iconbtn" onClick={onClose} aria-label="Sluiten"><Icon name="x" size={20} /></button>}
       </header>
 
-      <div className="dw__body">
-        <div className="dw__status">
-          <StatusPill level={a.level} />
-          {c && <span className="dw__time"><Icon name="clock" size={14} />Check-in om {fmtTime(c.at)}{c.mode === "simple" && " · eenvoudige modus"}</span>}
-        </div>
+      <div className="dw__tabs" role="tablist" aria-label="Details" onKeyDown={onTabKey}>
+        {DETAIL_TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" id={`${ids}-${t.id}`} aria-controls={`${ids}-panel`} aria-selected={tab === t.id}
+            tabIndex={tab === t.id ? 0 : -1} ref={(el) => { tabRefs.current[t.id] = el; }} className="dw__tab" onClick={() => setTab(t.id)}>
+            {t.label}{t.id === "notes" && p.notes.length > 0 && <span className="dw__tabn">{p.notes.length}</span>}
+          </button>
+        ))}
+      </div>
 
-        {p.callAt && (
-          <div className={cx("callout", !p.callAck && "callout--urgent")}>
-            <Icon name={p.callAck ? "checkCircle" : "bell"} size={20} />
-            <div>
-              <strong>{p.callAck ? `Opgevolgd om ${fmtTime(p.callAck)}` : `Vraagt nu een begeleider · ${fmtTime(p.callAt)}`}</strong>
-              <p>{p.callAck ? `${firstName(p.name)} ziet in de app dat je eraan komt.` : `Via de app. ${firstName(p.name)} ziet het meteen als je bevestigt.`}</p>
-              {!p.callAck && <button type="button" className="btn btn--primary btn--sm" onClick={actions.ack}><Icon name="check" size={16} />Ik ga langs</button>}
-            </div>
-          </div>
-        )}
+      <div className="dw__body" role="tabpanel" id={`${ids}-panel`} aria-labelledby={`${ids}-${tab}`}>
+        {tab === "today" && (
+          <>
+            {p.callAt && (
+              <div className={cx("callout", !p.callAck && "callout--urgent")}>
+                <Icon name={p.callAck ? "checkCircle" : "bell"} size={20} />
+                <div>
+                  <strong>{p.callAck ? `Opgevolgd om ${fmtTime(p.callAck)}` : `Vraagt nu een begeleider · ${fmtTime(p.callAt)}`}</strong>
+                  <p>{p.callAck ? `${firstName(p.name)} ziet in de app dat je eraan komt.` : `Via de app. ${firstName(p.name)} ziet het meteen als je bevestigt.`}</p>
+                  {!p.callAck && <button type="button" className="btn btn--primary btn--sm" onClick={actions.ack}><Icon name="check" size={16} />Ik ga langs</button>}
+                </div>
+              </div>
+            )}
 
-        {c ? (
-          <div className="dw__mood">
-            <MoodFace value={c.mood} size={60} tone />
-            <div>
-              <p className="dw__moodlabel">{MOODS[c.mood]}</p>
-              <p className="dw__moodsub">Stemming vandaag{a.streak >= 2 ? ` · ${a.streak} dagen laag` : ""}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="callout callout--muted">
-            <Icon name="clock" size={20} />
-            <div><strong>Nog geen check-in vandaag</strong><p>Het weekverloop hieronder toont de vorige dagen.</p></div>
-          </div>
-        )}
+            <AiCard compact title={LUMI.name} subtitle="Suggestie voor vandaag" className="ai--staff">
+              <AiText text={lumiPatientSummary(p)} className="ai__text--sm" />
+              <div className="ai__chips">
+                <button type="button" className="ai__q" onClick={concept}><Icon name="pencil" size={14} />Schrijf concept-rapportering</button>
+              </div>
+            </AiCard>
 
-        <section className="dw__sec">
-          <h3 className="dw__h">Stemming · afgelopen 7 dagen</h3>
-          <MoodChart points={points} />
-        </section>
-
-        {c && (
-          <section className="dw__sec">
-            <h3 className="dw__h">EMFI</h3>
-            <div className="dw__emfi">
-              {EMFI.map((d) => (
-                <div key={d.key} className={cx("dw__dim", `tone-${d.key}`, !c.emfi[d.key] && "is-empty")}>
-                  <span className="dim__badge"><Icon name={d.icon} size={18} /></span>
+            {c ? (
+              <>
+                <div className="dw__mood">
+                  <MoodFace value={c.mood} size={52} tone />
                   <div>
-                    <p className="dw__dimname">{d.name}</p>
-                    <p className="dw__dimval">{c.emfi[d.key] || "Niet ingevuld"}</p>
+                    <p className="dw__moodlabel">{MOODS[c.mood]}</p>
+                    <p className="dw__moodsub">Stemming vandaag{a.streak >= 2 ? ` · ${a.streak} dagen laag` : ""}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
+                <div className="dw__emfi">
+                  {EMFI.map((d) => (
+                    <div key={d.key} className={cx("dw__dim", `tone-${d.key}`, !c.emfi[d.key] && "is-empty")}>
+                      <span className="dim__badge"><Icon name={d.icon} size={17} /></span>
+                      <div>
+                        <p className="dw__dimname">{d.name}</p>
+                        <p className="dw__dimval">{c.emfi[d.key] || "Niet ingevuld"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <dl className="dw__facts">
+                  <div><dt>Slaap</dt><dd><MoonPhase value={c.sleep || 0} size={20} />{c.sleep ? SLEEP[c.sleep] : "Niet ingevuld"}</dd></div>
+                  <div><dt>Activiteiten</dt><dd>{c.activities.length ? c.activities.join(", ") : "Geen"}</dd></div>
+                </dl>
+                {c.talk && (
+                  <div className="callout">
+                    <Icon name="chat" size={20} />
+                    <div><strong>Vraagt een gesprek</strong><p>{firstName(p.name)} gaf aan vandaag graag even te praten.</p></div>
+                  </div>
+                )}
+                {c.thought && !c.thoughtPrivate && (
+                  <section className="dw__sec">
+                    <h3 className="dw__h">Notitie van {firstName(p.name)}</h3>
+                    <blockquote className="quote">“{c.thought}”</blockquote>
+                  </section>
+                )}
+                {a.signals.length > 0 && (
+                  <section className="dw__sec">
+                    <h3 className="dw__h">Signalen</h3>
+                    <SignalList signals={a.signals} />
+                    <p className="dw__fine">Automatisch afgeleid uit de check-in en het weekverloop. Weeg altijd zelf af, samen met het team.</p>
+                  </section>
+                )}
+              </>
+            ) : (
+              <div className="callout callout--muted">
+                <Icon name="clock" size={20} />
+                <div><strong>Nog geen check-in vandaag</strong><p>Bekijk het verloop van de vorige dagen in het tabblad Verloop.</p></div>
+              </div>
+            )}
+          </>
         )}
 
-        {c && (
-          <section className="dw__sec dw__facts">
-            <div><p className="dw__h">Slaap</p><p className="dw__fact"><MoonPhase value={c.sleep || 0} size={22} />{c.sleep ? SLEEP[c.sleep] : "Niet ingevuld"}</p></div>
-            <div><p className="dw__h">Activiteiten</p><p className="dw__fact">{c.activities.length ? c.activities.join(", ") : "Geen"}</p></div>
-          </section>
-        )}
-
-        {c?.talk && (
-          <div className="callout">
-            <Icon name="chat" size={20} />
-            <div><strong>Vraagt een gesprek</strong><p>{firstName(p.name)} gaf aan vandaag graag even te praten.</p></div>
-          </div>
-        )}
-
-        {c?.thought && !c.thoughtPrivate && (
+        {tab === "week" && (
           <section className="dw__sec">
-            <h3 className="dw__h">Notitie van {firstName(p.name)}</h3>
-            <blockquote className="quote quote--lg">“{c.thought}”</blockquote>
+            <h3 className="dw__h">Stemming · afgelopen 7 dagen</h3>
+            <MoodChart points={points} />
           </section>
         )}
 
-        {a.signals.length > 0 && (
-          <section className="dw__sec">
-            <h3 className="dw__h">Signalen</h3>
-            <SignalList signals={a.signals} />
-            <p className="dw__fine">Automatisch afgeleid uit de check-in en het weekverloop. Weeg altijd zelf af, samen met het team.</p>
-          </section>
+        {tab === "notes" && (
+          <NotesBox p={p} value={note} byAi={noteByAi}
+            onChange={(v) => { setNote(v); if (!v) setNoteByAi(false); }}
+            onConcept={concept}
+            onAdd={(text) => { actions.note(p.id, text, noteByAi); setNote(""); setNoteByAi(false); }} />
         )}
-
-        <NotesBox p={p} onAdd={(text) => actions.note(p.id, text)} />
       </div>
 
       <footer className="dw__foot">
         <p className="syncline is-synced"><Icon name="shield" size={14} />Dossier gesynchroniseerd met <b>{ORG.epd}</b></p>
         {c ? (
-          <button type="button" className={cx("btn", p.followedAt ? "btn--secondary" : "btn--primary")} onClick={() => actions.follow(p.id)} aria-pressed={!!p.followedAt}>
-            <Icon name={p.followedAt ? "checkCircle" : "check"} size={18} />
+          <button type="button" className={cx("btn btn--sm", p.followedAt ? "btn--secondary" : "btn--primary")} onClick={() => actions.follow(p.id)} aria-pressed={!!p.followedAt}>
+            <Icon name={p.followedAt ? "checkCircle" : "check"} size={17} />
             {p.followedAt ? `Opgevolgd om ${fmtTime(p.followedAt)}` : "Markeer als opgevolgd"}
           </button>
         ) : (
-          <button type="button" className="btn btn--secondary" onClick={() => actions.remind(p.id)} disabled={!!p.remindedAt}>
-            <Icon name={p.remindedAt ? "check" : "bell"} size={18} />
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => actions.remind(p.id)} disabled={!!p.remindedAt}>
+            <Icon name={p.remindedAt ? "check" : "bell"} size={17} />
             {p.remindedAt ? `Herinnering verstuurd · ${fmtTime(p.remindedAt)}` : "Stuur herinnering"}
           </button>
         )}
@@ -2618,37 +3101,46 @@ function PatientDetail({ p, now, actions, onClose }) {
   );
 }
 
-function NotesBox({ p, onAdd }) {
-  const [text, setText] = useState("");
+function NotesBox({ p, value, byAi, onChange, onConcept, onAdd }) {
   const id = useId();
-  const save = () => { if (!text.trim()) return; onAdd(text.trim()); setText(""); };
+  const save = () => { if (value.trim()) onAdd(value.trim()); };
   return (
     <section className="dw__sec">
-      <h3 className="dw__h">Rapportering</h3>
-      {p.notes.length > 0 && (
+      <div className="notes__head">
+        <h3 className="dw__h">Nieuwe rapportering</h3>
+        <button type="button" className="ai__q ai__q--sm" onClick={onConcept}><Icon name="sparkles" size={14} />Concept door {LUMI.name}</button>
+      </div>
+      <label className="sr-only" htmlFor={id}>Nieuwe rapportering over {firstName(p.name)}</label>
+      <textarea id={id} className={cx("textarea textarea--sm", byAi && "is-ai")} rows={byAi ? 6 : 3} value={value}
+        placeholder={`Korte notitie over ${firstName(p.name)}…`}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save(); }} />
+      {byAi && <p className="notes__ai"><Icon name="sparkles" size={13} />Concept door {LUMI.name}. Lees het na en pas aan waar nodig.</p>}
+      <div className="notes__actions">
+        <span className="muted small">Ctrl + Enter om op te slaan</span>
+        <button type="button" className="btn btn--primary btn--sm" disabled={!value.trim()} onClick={save}><Icon name="send" size={15} />Opslaan in dossier</button>
+      </div>
+
+      <h3 className="dw__h notes__title">Vandaag</h3>
+      {p.notes.length ? (
         <ul className="notes">
-          {p.notes.map((n) => (
+          {[...p.notes].reverse().map((n) => (
             <li key={n.at.toISOString()} className="note">
               <p>{n.text}</p>
-              <p className="note__meta">{n.author} · {fmtTime(n.at)} · <Icon name="shield" size={12} />in {ORG.epd}</p>
+              <p className="note__meta">
+                {n.author} · {fmtTime(n.at)}{n.ai && <> · met {LUMI.name}</>} · <Icon name="shield" size={12} />in {ORG.epd}
+              </p>
             </li>
           ))}
         </ul>
-      )}
-      <label className="sr-only" htmlFor={id}>Nieuwe notitie over {firstName(p.name)}</label>
-      <textarea id={id} className="textarea textarea--sm" rows={3} value={text} placeholder={`Korte notitie over ${firstName(p.name)}…`}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save(); }} />
-      <div className="notes__actions">
-        <span className="muted small">Ctrl + Enter om op te slaan</span>
-        <button type="button" className="btn btn--secondary btn--sm" disabled={!text.trim()} onClick={save}><Icon name="send" size={15} />Opslaan in dossier</button>
-      </div>
+      ) : <p className="muted small">Nog geen rapportering vandaag.</p>}
     </section>
   );
 }
 
 function Handover({ rows, now, onDisclaimer }) {
   const sections = buildHandover(rows);
+  const brief = useMemo(() => buildBriefing(rows), [rows]);
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     const text = handoverText(sections, now);
@@ -2680,7 +3172,14 @@ function Handover({ rows, now, onDisclaimer }) {
         </div>
       </header>
       <div className="sm__content ho">
-        <p className="ho__intro">Automatisch samengesteld uit de check-ins en de rapportering van vandaag. Vul aan waar nodig.</p>
+        <AiCard title={`Samenvatting door ${LUMI.name}`} subtitle={`Voor de ${nextShiftName(now)}`} className="ai--staff ho__ai">
+          <AiText text={brief.intro} />
+          {brief.points.length > 0 && (
+            <ul className="ai__points">
+              {brief.points.map((pt) => <li key={pt.id}><span><b>{pt.name}</b> · {pt.tip}</span></li>)}
+            </ul>
+          )}
+        </AiCard>
         <div className="ho__grid">
           {sections.map((s) => (
             <section key={s.id} className={cx("ho-sec", `ho-sec--${s.id}`)}>
@@ -3403,8 +3902,79 @@ body { margin: 0; background: var(--bg); }
 .s-done__speak { margin: 22px 0 14px; }
 .app[data-mode="simple"] .syncline { font-size: 15px; }
 
-/* ════ Begeleiding: werkplek ═════════════════════════════ */
-.staff { display: grid; grid-template-columns: 256px minmax(0, 1fr); min-height: 100vh; min-height: 100dvh; }
+/* ════ Lumi (AI-assistent) ═══════════════════════════════ */
+@property --ai-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+.ai { position: relative; padding: 1.5px; border-radius: 24px; background: conic-gradient(from var(--ai-angle), #6FD3B5, #8EA0FF, #D7A6FF, #F7CF7A, #6FD3B5); animation: ai-spin 12s linear infinite; box-shadow: 0 18px 40px -28px rgba(98, 80, 214, .55); }
+@keyframes ai-spin { to { --ai-angle: 360deg; } }
+.ai__inner { position: relative; overflow: hidden; padding: 16px; border-radius: 22.5px; background: radial-gradient(120% 120% at 0% 0%, rgba(142, 160, 255, .13), transparent 55%), radial-gradient(120% 120% at 100% 100%, rgba(111, 211, 181, .15), transparent 55%), var(--surface); }
+.ai__inner::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(75, 59, 192, .08) 1px, transparent 1px); background-size: 14px 14px; -webkit-mask-image: linear-gradient(to bottom, #000, transparent 75%); mask-image: linear-gradient(to bottom, #000, transparent 75%); }
+.ai--compact .ai__inner { padding: 14px; }
+.ai__head { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.lumi-orb { flex: none; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 28%, #C9D1FF, #6250D6 58%, #2E7D68); box-shadow: 0 0 0 3px rgba(142, 160, 255, .2), 0 6px 16px -6px rgba(98, 80, 214, .65); }
+.ai__titles { flex: 1; min-width: 0; }
+.ai__title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; line-height: 1.2; }
+.ai__chip { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; background: linear-gradient(90deg, rgba(142, 160, 255, .25), rgba(111, 211, 181, .25)); color: #3E2FA8; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; }
+.ai__sub { font-size: 12.5px; color: var(--ink-2); }
+.ai__tools { display: flex; gap: 2px; }
+.ai__tool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.ai__tool:hover { background: var(--surface-3); color: var(--ink); }
+.ai__text { position: relative; min-height: 3em; font-size: 15.5px; line-height: 1.55; color: var(--ink); }
+.ai__text--sm { min-height: 0; font-size: 14.5px; }
+.ai__caret { display: inline-block; width: 7px; height: 1.05em; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: linear-gradient(180deg, #8EA0FF, #6FD3B5); animation: caret .8s steps(2) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+.ai__points { position: relative; display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+.ai__points li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.45; color: var(--ink); animation: ai-in .5s var(--ease) both; }
+.ai__points li:nth-child(2) { animation-delay: .08s; }
+.ai__points li:nth-child(3) { animation-delay: .16s; }
+.ai__points li:nth-child(4) { animation-delay: .24s; }
+.ai__points li::before { content: ""; flex: none; width: 7px; height: 7px; margin-top: 7px; border-radius: 50%; background: linear-gradient(135deg, #8EA0FF, #6FD3B5); }
+.ai__points--grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 8px 24px; }
+@keyframes ai-in { from { opacity: 0; transform: translateY(6px); } }
+.ai__name { padding: 0; border: 0; background: none; color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: rgba(98, 80, 214, .4); text-underline-offset: 3px; }
+.ai__name:hover { text-decoration-color: #6250D6; }
+.ai__signal { color: var(--ink-2); }
+.ai__tip { display: block; margin-top: 1px; color: var(--ink-2); font-size: 13.5px; }
+.ai__fine { position: relative; margin-top: 12px; font-size: 12px; line-height: 1.45; color: var(--ink-3); }
+.ai__chips { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.ai__ask { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #5B48CF, #2E7D68); color: #fff; font-size: 14.5px; font-weight: 700; box-shadow: 0 10px 20px -12px rgba(98, 80, 214, .8); }
+.ai__ask:hover { filter: brightness(1.06); }
+.ai__q { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(98, 80, 214, .28); background: rgba(142, 160, 255, .09); color: #3B2F9A; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.ai__q:hover { background: rgba(142, 160, 255, .16); }
+.ai__q--sm { min-height: 32px; padding: 0 11px; font-size: 12.5px; }
+
+/* Chat met Lumi */
+.chat { position: absolute; inset: 0; z-index: 55; display: flex; flex-direction: column; background: var(--bg); animation: flow-in .3s var(--ease); }
+.chat__head { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(var(--sat) + 6px) 14px 10px 8px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.chat__who { flex: 1; min-width: 0; }
+.chat__name { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; line-height: 1.2; }
+.chat__sub { font-size: 12.5px; color: var(--ink-2); }
+.chat__safety { flex: none; display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--warn-soft); color: var(--warn-ink); font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.chat__safety p { flex: 1; min-width: 0; }
+.chat__safety.is-active { background: var(--brand-soft); color: var(--brand-soft-ink); }
+.chat__urgent { flex: none; background: var(--surface); border-color: var(--warn); color: var(--warn-ink); }
+.chat__list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding: 16px 14px; }
+.msg { max-width: min(84%, 560px); padding: 10px 14px; border-radius: 20px; font-size: 15.5px; line-height: 1.45; animation: ai-in .3s var(--ease) both; }
+.msg--lumi { align-self: flex-start; border: 1px solid var(--line); border-bottom-left-radius: 6px; background: var(--surface); box-shadow: var(--shadow-1); }
+.msg--me { align-self: flex-end; border-bottom-right-radius: 6px; background: var(--brand); color: var(--brand-ink); }
+.msg--urgent { border-color: var(--warn); background: var(--warn-soft); color: var(--ink); }
+.msg__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.msg--typing { display: inline-flex; gap: 5px; padding: 14px 16px; }
+.msg--typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); animation: dot 1.1s infinite ease-in-out; }
+.msg--typing i:nth-child(2) { animation-delay: .15s; }
+.msg--typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 0%, 60%, 100% { opacity: .3; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+.chat__chips { flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 4px 14px 8px; scrollbar-width: none; }
+.chat__chips::-webkit-scrollbar { display: none; }
+.chat__form { flex: none; display: flex; gap: 8px; padding: 10px 12px calc(var(--sab) + 10px); border-top: 1px solid var(--line); background: var(--surface); }
+.chat__input { flex: 1; min-width: 0; min-height: 46px; padding: 0 18px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 16px; }
+.chat__input:focus { outline: none; border-color: #6250D6; box-shadow: 0 0 0 4px rgba(98, 80, 214, .14); }
+.chat__send { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%; background: linear-gradient(135deg, #5B48CF, #2E7D68); color: #fff; }
+.chat__send:disabled { background: var(--surface-3); color: var(--ink-3); cursor: default; }
+@container app (min-width: 960px) { .chat__list, .chat__chips, .chat__form, .chat__safety { padding-left: max(14px, calc((100% - 760px) / 2)); padding-right: max(14px, calc((100% - 760px) / 2)); } }
+@media (max-width: 560px) { .ai__toollabel { display: none; } }
+
+/* ════ Begeleidersportaal ════════════════════════════════ */
+.staff { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; min-height: 100dvh; }
 .sb { position: sticky; top: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; gap: 6px; padding: 18px 14px 16px; border-right: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 60%, transparent); }
 .sb__brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 22px; }
 .sb__nav { display: flex; flex-direction: column; gap: 2px; }
@@ -3415,21 +3985,20 @@ body { margin: 0; background: var(--bg); }
 .sb__spacer { flex: 1; }
 .sb__demo { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 12px; border-radius: 14px; border: 1px dashed var(--line-strong); background: transparent; color: var(--ink); text-align: left; font-weight: 600; font-size: 14.5px; }
 .sb__demo:hover { background: var(--surface); border-style: solid; }
-.sb__demo span { display: flex; flex-direction: column; line-height: 1.25; }
-.sb__demo small, .sb__sync small, .sb__user small { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
-.sb__sync { display: flex; align-items: center; gap: 10px; padding: 12px; font-size: 13px; color: var(--ink-2); line-height: 1.3; }
-.sb__sync > span:last-child { display: flex; flex-direction: column; }
+.sb__demotext, .sb__synctext, .sb__usertext { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sb__demotext small, .sb__synctext small, .sb__usertext small { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.sb__sync { display: flex; align-items: center; gap: 10px; padding: 12px; font-size: 13px; color: var(--ink-2); }
 .sb__sync b { color: var(--ink); }
 .sb__disc { align-self: flex-start; margin: -4px 4px 8px; }
 .sb__user { display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--line); }
-.sb__user > span { display: flex; flex-direction: column; line-height: 1.25; font-size: 14px; }
+.sb__usertext { font-size: 14px; }
 
 .sm { min-width: 0; display: flex; flex-direction: column; }
 .sm__top { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; padding: 16px 32px; background: color-mix(in srgb, var(--bg) 84%, transparent); -webkit-backdrop-filter: saturate(1.4) blur(16px); backdrop-filter: saturate(1.4) blur(16px); border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent); }
 .sm__titles { margin-right: auto; }
 .sm__title { font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: -.01em; }
 .sm__sub { margin-top: 4px; font-size: 14px; color: var(--ink-2); }
-.sm__content { width: 100%; max-width: 1560px; padding: 24px 32px 56px; }
+.sm__content { width: 100%; max-width: 1560px; padding: 20px 32px 56px; display: flex; flex-direction: column; gap: 16px; }
 .search { position: relative; display: flex; align-items: center; color: var(--ink-3); }
 .search .ic { position: absolute; left: 14px; pointer-events: none; }
 .search input { width: 300px; max-width: 100%; height: 44px; padding: 0 40px 0 40px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); font-size: 15px; color: var(--ink); }
@@ -3437,147 +4006,158 @@ body { margin: 0; background: var(--bg); }
 .search input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 20%, transparent); }
 .search kbd { position: absolute; right: 12px; min-width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--surface-2); font: 600 12px var(--font-ui); color: var(--ink-2); }
 
-.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.5fr); gap: 14px; margin-bottom: 22px; }
-.kpi { display: flex; flex-direction: column; gap: 6px; min-height: 140px; padding: 16px 18px; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-1); }
-.kpi__label { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
-.kpi__value { font-size: 38px; font-weight: 600; line-height: 1.1; letter-spacing: -.02em; }
-.kpi__value small { font-size: 18px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
-.kpi__sub { margin-top: auto; font-size: 13px; color: var(--ink-2); line-height: 1.4; }
-.kpi__urgent { color: var(--crit-ink); }
-.kpi__row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
-.delta { font-size: 13px; font-weight: 700; }
+/* Kerncijfers in één strook */
+.stats-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.5fr); border-radius: 20px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-1); overflow: hidden; }
+.stat { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: 14px 18px; border-left: 1px solid var(--line); }
+.stat:first-child { border-left: 0; }
+.stat__v { display: flex; align-items: baseline; gap: 4px; font-size: 28px; font-weight: 600; line-height: 1.1; letter-spacing: -.02em; }
+.stat__v small { font-size: 15px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+.stat__l { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.stat__hint { font-weight: 500; color: var(--ink-3); }
+.stat__urgent { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--crit-soft); color: var(--crit-ink); font-size: 12px; font-weight: 700; letter-spacing: 0; }
+.stat .meter, .stat .dist__bar { margin-top: 8px; }
+.stat .delta { margin-left: 10px; font-size: 13px; letter-spacing: 0; }
+.dot { width: 9px; height: 9px; flex: none; border-radius: 50%; }
+.dot--critical { background: var(--crit); }
+.dot--attention { background: var(--warn); }
 .delta.is-up { color: var(--brand); }
 .delta.is-down { color: var(--crit-ink); }
 .delta.is-flat { color: var(--ink-2); }
-.meter { height: 6px; margin-top: 4px; border-radius: 999px; background: var(--brand-soft); overflow: hidden; }
+.meter { height: 6px; border-radius: 999px; background: var(--brand-soft); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: inherit; background: var(--brand); transition: width .5s var(--ease); }
-.dist { margin-top: auto; }
-.dist__bar { display: flex; gap: 2px; height: 10px; border-radius: 999px; overflow: hidden; background: var(--surface); }
+.dist__bar { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface); }
 .dist__bar i { display: block; min-width: 6px; }
 .dist__bar i:first-child { border-radius: 999px 0 0 999px; }
 .dist__bar i:last-child { border-radius: 0 999px 999px 0; }
 .dist__bar i:only-child { border-radius: 999px; }
 .dist__empty { flex: 1; background: var(--surface-3); }
-.dist__legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; color: var(--ink-2); }
-.dist__legend li { display: inline-flex; align-items: center; gap: 6px; }
-.dist__legend b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
-.dist__legend li.is-zero { opacity: .6; }
 
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; }
-.fchip { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 8px 0 15px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; transition: background .15s, color .15s, border-color .15s; }
+.fchip { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 8px 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; transition: background .15s, color .15s, border-color .15s; }
 .fchip:hover { border-color: var(--ink-3); }
-.fchip__n { min-width: 26px; height: 26px; padding: 0 7px; display: grid; place-items: center; border-radius: 999px; background: var(--surface-3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.fchip__n { min-width: 24px; height: 24px; padding: 0 7px; display: grid; place-items: center; border-radius: 999px; background: var(--surface-3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .fchip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .fchip[aria-pressed="true"] .fchip__n { background: color-mix(in srgb, var(--bg) 18%, transparent); }
 .mlegend { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
 .mlegend__sw { display: inline-flex; gap: 2px; }
 .mlegend__sw i { width: 14px; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
 
-.split { display: grid; grid-template-columns: minmax(0, 1fr) clamp(380px, 30vw, 480px); gap: 20px; align-items: start; }
-.plist { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.prow {
-  position: relative; display: grid; grid-template-columns: 42px minmax(0, 1.2fr) minmax(0, 1fr) auto auto;
-  column-gap: 16px; row-gap: 10px; align-items: center; padding: 14px 16px;
-  border-radius: 20px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-1);
-  transition: border-color .15s, box-shadow .15s, background .15s;
-}
-.prow:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
-.prow.is-selected { border-color: var(--brand); background: color-mix(in srgb, var(--brand-soft) 40%, var(--surface)); box-shadow: 0 0 0 1px var(--brand), var(--shadow-1); }
-.prow:has(.prow__btn:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
-.prow__btn { position: absolute; inset: 0; z-index: 0; border: 0; border-radius: inherit; background: transparent; }
+/* Patiëntenlijst, per prioriteit */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 27vw, 460px); gap: 20px; align-items: start; }
+.ptable { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.ptable__head, .prow { display: grid; grid-template-columns: minmax(170px, 1.1fr) minmax(108px, .7fr) 92px minmax(0, 1.6fr); column-gap: 16px; align-items: center; }
+.ptable__head { padding: 0 16px; margin-bottom: -6px; font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.pgroup__title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px 4px; font-size: 14px; font-weight: 700; }
+.pgroup__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); }
+.pgroup--critical .pgroup__dot { background: var(--crit); }
+.pgroup--attention .pgroup__dot { background: var(--warn); }
+.pgroup--stable .pgroup__dot { background: var(--brand); }
+.pgroup__n { min-width: 22px; height: 22px; padding: 0 7px; display: grid; place-items: center; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); font-size: 12px; }
+.pgroup__list { border-radius: 18px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-1); overflow: hidden; }
+.pgroup--none .pgroup__list { background: color-mix(in srgb, var(--surface) 70%, transparent); box-shadow: none; border-style: dashed; }
+.prow { position: relative; min-height: 62px; padding: 10px 16px; border-top: 1px solid var(--line); transition: background .15s; }
+.prow:first-child { border-top: 0; }
+.prow:hover { background: var(--surface-2); }
+.prow.is-selected { background: color-mix(in srgb, var(--brand-soft) 60%, var(--surface)); box-shadow: inset 3px 0 0 var(--brand); }
+.prow:has(.prow__btn:focus-visible) { outline: 3px solid var(--focus); outline-offset: -3px; }
+.prow__btn { position: absolute; inset: 0; z-index: 0; border: 0; background: transparent; }
 .prow__btn:focus-visible { outline: none; }
-.prow > :not(.prow__btn) { position: relative; pointer-events: none; }
+.prow > :not(.prow__btn) { position: relative; min-width: 0; pointer-events: none; }
 .prow .prow__action, .prow [title] { pointer-events: auto; }
-.prow--critical::before, .prow--attention::before { content: ""; position: absolute; z-index: 1; left: -1px; top: 16px; bottom: 16px; width: 4px; border-radius: 0 4px 4px 0; background: var(--crit); }
-.prow--attention::before { background: var(--warn); }
-.prow--none { background: color-mix(in srgb, var(--surface) 65%, transparent); box-shadow: none; border-style: dashed; }
-.prow__who { min-width: 0; }
-.prow__name { font-size: 16.5px; font-weight: 700; line-height: 1.25; }
-.prow__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 13px; color: var(--ink-2); }
-.prow__mood { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.prow__mood b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.prow__none { font-size: 14px; color: var(--ink-2); }
-.prow__status { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.prow__line { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.prow__who { display: flex; align-items: center; gap: 10px; }
+.prow__id { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.prow__id b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prow__id small { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; font-size: 12.5px; color: var(--ink-2); }
+.prow__mood { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.prow__mood span { overflow: hidden; text-overflow: ellipsis; }
+.prow__signal { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.prow__stext { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--ink); line-height: 1.3; }
+.prow__sicon--critical { color: var(--crit); }
+.prow__sicon--attention { color: var(--warn); }
+.prow__more { flex: none; padding: 1px 8px; border-radius: 999px; background: var(--surface-3); color: var(--ink-2); font-size: 12px; font-weight: 700; }
+.flag { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 6px; background: var(--surface-3); color: var(--ink-2); }
+.flag--talk { background: var(--brand-soft); color: var(--brand-soft-ink); }
+.flag--done { background: transparent; color: var(--ok); }
 .wk { display: inline-flex; gap: 3px; }
-.wk__c { width: 11px; height: 22px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
+.wk__c { width: 10px; height: 20px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
 .wk__c.is-empty { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
 .wk__c.is-today { outline: 2px solid var(--ink); outline-offset: 1px; }
 
-.pill { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px 0 9px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.pill { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 8px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; vertical-align: middle; }
 .pill--critical { background: var(--crit-soft); color: var(--crit-ink); }
 .pill--attention { background: var(--warn-soft); color: var(--warn-ink); }
 .pill--stable { background: var(--brand-soft); color: var(--brand-soft-ink); }
 .pill--none { background: var(--surface-3); color: var(--ink-2); }
-.etags { display: flex; flex-wrap: wrap; gap: 6px; }
-.etag { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px; border-radius: 9px; background: var(--tone-soft); color: var(--ink); font-size: 13px; font-weight: 600; }
-.etag .ic { color: var(--tone-ink); }
 .signals { display: flex; flex-wrap: wrap; gap: 6px; }
 .sig { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 8px; border-radius: 8px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .sig--critical { background: var(--crit-soft); color: var(--crit-ink); }
 .sig--attention { background: var(--warn-soft); color: var(--warn-ink); }
 .sig--talk { background: var(--brand-soft); color: var(--brand-soft-ink); }
 .sig--more { background: var(--surface-3); color: var(--ink-2); padding: 0 9px; }
-.followed { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--brand-soft-ink); white-space: nowrap; }
-.quote { padding-left: 14px; border-left: 2px solid var(--line-strong); font-family: var(--font-display); font-style: italic; font-size: 18.5px; line-height: 1.35; color: var(--ink); }
-.quote--lg { font-size: 22px; }
+.quote { padding-left: 14px; border-left: 2px solid var(--line-strong); font-family: var(--font-display); font-style: italic; font-size: 20px; line-height: 1.35; color: var(--ink); }
 .empty { display: grid; justify-items: center; gap: 4px; padding: 48px 24px; text-align: center; color: var(--ink-2); border-radius: 22px; border: 1px dashed var(--line-strong); }
 .empty .ic { color: var(--ink-3); margin-bottom: 6px; }
 .empty strong { color: var(--ink); }
 
+/* Detailpaneel */
 .panel { position: sticky; top: 96px; height: calc(100dvh - 152px); min-height: 520px; display: flex; overflow: hidden; border-radius: 24px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-2); }
 .panel__empty { flex: 1; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--ink-2); text-align: center; padding: 24px; }
-
-.drawer {
-  position: fixed; inset: 0 0 0 auto; width: min(540px, 100vw); max-width: 100vw; height: 100%; max-height: 100%;
-  margin: 0; padding: 0; border: 0; border-radius: 28px 0 0 28px; overflow: hidden;
-  background: var(--surface); color: var(--ink); box-shadow: -30px 0 80px -30px rgba(0, 0, 0, .35);
-}
+.drawer { position: fixed; inset: 0 0 0 auto; width: min(540px, 100vw); max-width: 100vw; height: 100%; max-height: 100%; margin: 0; padding: 0; border: 0; border-radius: 28px 0 0 28px; overflow: hidden; background: var(--surface); color: var(--ink); box-shadow: -30px 0 80px -30px rgba(0, 0, 0, .35); }
 .drawer[open] { display: flex; animation: drawer-in .32s var(--ease); }
 .drawer::backdrop { background: rgba(14, 20, 18, .38); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 @keyframes drawer-in { from { transform: translateX(32px); opacity: 0; } }
 .dw { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; }
-.dw__head { display: flex; align-items: center; gap: 14px; padding: 20px 22px 16px; border-bottom: 1px solid var(--line); }
+.dw__head { display: flex; align-items: center; gap: 14px; padding: 18px 20px 14px; }
 .dw__id { flex: 1; min-width: 0; }
-.dw__name { font-family: var(--font-display); font-weight: 400; font-size: 32px; line-height: 1.05; }
-.dw__meta { font-size: 14px; color: var(--ink-2); }
-.dw__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 22px 26px; display: flex; flex-direction: column; gap: 22px; }
-.dw__status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-.dw__time { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--ink-2); }
-.dw__mood { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 20px; background: var(--surface-2); }
-.dw__moodlabel { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.dw__name { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1.05; }
+.dw__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; font-size: 13.5px; color: var(--ink-2); }
+.dw__time { display: inline-flex; align-items: center; gap: 5px; }
+.dw__tabs { display: flex; gap: 2px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+.dw__tab { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--ink-2); font-size: 14px; font-weight: 600; }
+.dw__tab:hover { color: var(--ink); }
+.dw__tab[aria-selected="true"] { color: var(--ink); }
+.dw__tab[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2.5px; border-radius: 2px; background: var(--brand); }
+.dw__tabn { min-width: 20px; height: 20px; padding: 0 6px; display: grid; place-items: center; border-radius: 999px; background: var(--brand-soft); color: var(--brand-soft-ink); font-size: 11.5px; }
+.dw__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px 26px; display: flex; flex-direction: column; gap: 18px; }
+.dw__mood { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 18px; background: var(--surface-2); }
+.dw__moodlabel { font-size: 20px; font-weight: 700; line-height: 1.2; }
 .dw__moodsub { font-size: 13.5px; color: var(--ink-2); }
-.dw__sec { display: flex; flex-direction: column; gap: 12px; }
-.dw__h { font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
-.dw__emfi { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.dw__dim { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: color-mix(in srgb, var(--tone-soft) 60%, var(--surface)); }
+.dw__sec { display: flex; flex-direction: column; gap: 10px; }
+.dw__h { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.dw__emfi { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dw__dim { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--tone-soft) 60%, var(--surface)); }
 .dw__dim.is-empty { background: var(--surface-2); }
-.dw__dim .dim__badge { width: 36px; height: 36px; border-radius: 11px; background: var(--tone); color: var(--tone-on); }
+.dw__dim .dim__badge { width: 34px; height: 34px; border-radius: 10px; background: var(--tone); color: var(--tone-on); }
 .dw__dim.is-empty .dim__badge { background: var(--tone-soft); color: var(--tone-ink); }
-.dw__dimname { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.dw__dimname { font-size: 12px; color: var(--ink-2); font-weight: 600; }
 .dw__dimval { font-weight: 700; line-height: 1.25; }
-.dw__facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.dw__facts > div { display: flex; flex-direction: column; gap: 8px; }
-.dw__fact { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.dw__facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dw__facts > div { padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.dw__facts dt { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.dw__facts dd { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-weight: 600; line-height: 1.3; }
 .dw__fine { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
-.dw__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
+.dw__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
 .dw__foot .syncline { justify-content: flex-start; }
-.callout { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--brand-soft); color: var(--brand-soft-ink); font-size: 14px; }
+.callout { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--brand-soft); color: var(--brand-soft-ink); font-size: 14px; }
 .callout strong { display: block; font-size: 15px; }
 .callout .ic { margin-top: 2px; }
 .callout .btn { margin-top: 10px; }
 .callout--muted { background: var(--surface-2); color: var(--ink-2); }
 .callout--muted strong { color: var(--ink); }
 .callout--urgent { background: var(--crit-soft); color: var(--crit-ink); box-shadow: inset 0 0 0 1.5px var(--crit); }
+.notes__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.notes__title { margin-top: 10px; }
+.textarea.is-ai { border-color: rgba(98, 80, 214, .45); background: linear-gradient(180deg, rgba(142, 160, 255, .07), transparent), var(--surface); }
+.notes__ai { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #3B2F9A; }
 .notes { display: flex; flex-direction: column; gap: 8px; }
 .note { padding: 12px 14px; border-radius: 14px; background: var(--surface-2); font-size: 14.5px; }
 .note__meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 4px; font-size: 12.5px; color: var(--ink-2); }
 .note__meta .ic { color: var(--ok); }
 .notes__actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 
+/* Overdracht */
 .ho__actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.ho__intro { margin-bottom: 18px; color: var(--ink-2); max-width: 70ch; }
 .ho__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .ho-sec { padding: 18px 20px; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-1); }
 .ho-sec__title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; margin-bottom: 10px; }
@@ -3594,11 +4174,13 @@ body { margin: 0; background: var(--bg); }
 .ho-item__mood { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-weight: 600; color: var(--ink) !important; }
 .ho-item__line { margin-top: 4px; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
 
-/* ── Responsief (werkplek) ─────────────────────────────── */
+/* ── Responsief (portaal) ──────────────────────────────── */
 @media (max-width: 1279px) {
   .split { grid-template-columns: 1fr; }
-  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .kpi--wide { grid-column: 1 / -1; min-height: 0; }
+}
+@media (max-width: 1100px) {
+  .stats-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .stat--mood { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
 }
 @media (max-width: 960px) {
   .staff { grid-template-columns: 1fr; }
@@ -3614,21 +4196,23 @@ body { margin: 0; background: var(--bg); }
   .sm__content { padding: 14px 16px 48px; }
   .ho__grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 720px) {
-  .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .kpi { min-height: 0; padding: 14px; }
-  .kpi__value { font-size: 32px; }
-  .kpis > .kpi:nth-child(3) { grid-column: 1 / -1; }
+@media (max-width: 760px) {
+  .stats-strip { grid-template-columns: 1fr 1fr; }
+  .stat { border-left: 0; border-top: 1px solid var(--line); }
+  .stat:nth-child(even) { border-left: 1px solid var(--line); }
+  .stat:nth-child(-n+2) { border-top: 0; }
+  .stat--mood { border-left: 0 !important; }
   .search, .search input { width: 100%; }
   .sm__top .search { flex: 1 1 100%; }
   .mlegend { display: none; }
-  .prow { grid-template-columns: 40px minmax(0, 1fr) auto; row-gap: 12px; padding: 14px; }
-  .prow__mood { grid-column: 2; grid-row: 2; }
-  .prow__week { grid-column: 3; grid-row: 2; justify-self: end; }
-  .prow__status { grid-column: 3; grid-row: 1; }
-  .prow__line { grid-column: 1 / -1; }
+  .ptable__head { display: none; }
+  .prow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 8px; padding: 12px 14px; }
+  .prow__who { grid-column: 1; grid-row: 1; }
+  .prow__week { grid-column: 2; grid-row: 1; justify-self: end; }
+  .prow__mood { grid-column: 1 / -1; grid-row: 2; }
+  .prow__signal { grid-column: 1 / -1; grid-row: 3; }
   .drawer { border-radius: 0; width: 100vw; }
-  .dw__head, .dw__body, .dw__foot { padding-left: 18px; padding-right: 18px; }
+  .dw__head, .dw__body, .dw__foot { padding-left: 16px; padding-right: 16px; }
   .dw__emfi, .dw__facts { grid-template-columns: 1fr; }
 }
 
