@@ -17,7 +17,12 @@ Op een computer draait de app in een gesimuleerd toestel dat meeschaalt met je v
 
 ### Linde AI, de chatbot (demo)
 
-Op **Vandaag** en **Verloop** staat een kader van Linde AI met een korte samenvatting van je dag of je week. Via **Praat met Linde AI** open je een chat voor kleine vragen: wat er nog op de planning staat, hoe je week was, tips om te ontspannen, bezoekuren of maaltijden.
+Op **Vandaag** en **Verloop** staat een kader van Linde AI met een korte samenvatting van je dag of je week.
+
+- Op **Vandaag** komt Linde AI binnen met een korte intro, één keer per bezoek en zodra de kaart in beeld is. Het paarse bolletje verschijnt groot in het midden, landt in de kop, en dan typt Linde AI de samenvatting. Wie op het toestel minder beweging heeft ingesteld, ziet meteen de volledige kaart.
+- Op **Verloop** is de kaart ingeklapt. Tik op de kop om de samenvatting te openen.
+
+Via **Praat met Linde AI** open je een chat voor kleine vragen: wat er nog op de planning staat, hoe je week was, tips om te ontspannen, bezoekuren of maaltijden.
 
 - "AI" staat bewust in de naam, en de chat zegt meteen dat het een chatbot is en geen mens. Zo denkt niemand dat hij met een medewerker praat.
 - Linde AI is er **niet voor noodgevallen**. Dat staat bovenaan in elke chat, met een knop **Vraag een begeleider** die altijd zichtbaar blijft.

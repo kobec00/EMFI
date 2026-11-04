@@ -18,7 +18,7 @@
  * Eén bestand, enkel React als afhankelijkheid. `npm run build` maakt
  * er een standalone index.html van.
  */
-import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 /* ════════════════════════════════════════════════════════════════
    Inhoud & data
@@ -733,7 +733,7 @@ function MoodChart({ points }) {
           ))}
         </svg>
         {h && (
-          <div className="tip" style={{ left: `${(x(hover) / W) * 100}%`, top: `${((h.mood != null ? y(h.mood) : y(2)) / H) * 100}%` }}>
+          <div className={cx("tip", x(hover) / W > 0.8 && "tip--end", x(hover) / W < 0.2 && "tip--start")} style={{ left: `${(x(hover) / W) * 100}%`, top: `${((h.mood != null ? y(h.mood) : y(2)) / H) * 100}%` }}>
             <span className="tip__day">{capitalize(fmtDayShort(h.date))}</span>
             <span className="tip__val">{h.mood != null ? MOODS[h.mood] : "Geen check-in"}</span>
           </div>
@@ -891,20 +891,30 @@ const ACT_VERB = {
 const LINDE_CHIPS = ["Wat staat er nog op de planning?", "Hoe was mijn week?", "Tips om te ontspannen", "Ik wil met iemand praten"];
 const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 
-function useTypewriter(text, runKey = 0) {
+/* start: pas beginnen met typen als dit true is; delay in ms; instant: meteen alles tonen. */
+const TYPE_STEP = 3;
+const TYPE_TICK = 16;
+const typeDuration = (text) => Math.ceil(text.length / TYPE_STEP) * TYPE_TICK;
+
+function useTypewriter(text, runKey = 0, { start = true, delay = 0, instant = false } = {}) {
   const reduce = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const [n, setN] = useState(() => (reduce ? text.length : 0));
+  const skip = reduce || instant;
+  const [n, setN] = useState(() => (skip ? text.length : 0));
   useEffect(() => {
-    if (reduce) { setN(text.length); return undefined; }
+    if (skip) { setN(text.length); return undefined; }
     setN(0);
+    if (!start) return undefined;
     let i = 0;
-    const id = setInterval(() => {
-      i += 3;
-      setN(Math.min(i, text.length));
-      if (i >= text.length) clearInterval(id);
-    }, 16);
-    return () => clearInterval(id);
-  }, [text, runKey, reduce]);
+    let id;
+    const t = setTimeout(() => {
+      id = setInterval(() => {
+        i += TYPE_STEP;
+        setN(Math.min(i, text.length));
+        if (i >= text.length) clearInterval(id);
+      }, TYPE_TICK);
+    }, delay);
+    return () => { clearTimeout(t); clearInterval(id); };
+  }, [text, runKey, skip, start, delay]);
   return text.slice(0, n);
 }
 
@@ -927,30 +937,53 @@ function LindeText({ text }) {
   ));
 }
 
-function AiCard({ title, subtitle, tools, children, className, compact }) {
+/* collapsible: de kop wordt een knop die de rest van de kaart in- en uitklapt. */
+function AiCard({ title, subtitle, tools, children, className, compact, collapsible, open = true, onToggle, cardRef, orbRef, style }) {
+  const bodyId = useId();
+  const bodyRef = useRef(null);
+  useInert(bodyRef, !!collapsible && !open);
+  const head = (
+    <>
+      <span className="ai__orb" ref={orbRef}><LindeOrb size={compact ? 30 : 36} /></span>
+      <span className="ai__titles">
+        <span className="ai__title"><LindeText text={title} /></span>
+        {subtitle && <span className="ai__sub">{subtitle}</span>}
+      </span>
+    </>
+  );
   return (
-    <section className={cx("ai", compact && "ai--compact", className)} aria-label={title}>
+    <section ref={cardRef} style={style} aria-label={title}
+      className={cx("ai", compact && "ai--compact", collapsible && "ai--collapsible", collapsible && open && "is-open", className)}>
       <div className="ai__inner">
-        <header className="ai__head">
-          <LindeOrb size={compact ? 30 : 36} />
-          <div className="ai__titles">
-            <p className="ai__title"><LindeText text={title} /></p>
-            {subtitle && <p className="ai__sub">{subtitle}</p>}
+        {collapsible ? (
+          <button type="button" className="ai__head ai__toggle" aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
+            {head}
+            <span className="ai__chev"><Icon name="chevronRight" size={18} /></span>
+          </button>
+        ) : (
+          <header className="ai__head">
+            {head}
+            {tools && <div className="ai__tools">{tools}</div>}
+          </header>
+        )}
+        {collapsible ? (
+          <div className="ai__collapse" id={bodyId} ref={bodyRef}>
+            <div className="ai__collapsein">{children}</div>
           </div>
-          {tools && <div className="ai__tools">{tools}</div>}
-        </header>
-        {children}
+        ) : children}
       </div>
     </section>
   );
 }
 
-/* Tekst die verschijnt alsof Linde hem schrijft; schermlezers krijgen meteen de volledige tekst. */
-function AiText({ text, runKey, className }) {
-  const typed = useTypewriter(text, runKey);
+/* Tekst die verschijnt alsof Linde hem schrijft; schermlezers krijgen meteen de volledige tekst.
+   Een onzichtbare kopie houdt de plaats vrij, zodat de kaart niet groeit tijdens het typen. */
+function AiText({ text, runKey, className, start = true, delay = 0, instant = false }) {
+  const typed = useTypewriter(text, runKey, { start, delay, instant });
   return (
     <p className={cx("ai__text", className)}>
-      <span aria-hidden="true">{typed}{typed.length < text.length && <span className="ai__caret" />}</span>
+      <span className="ai__ghost" aria-hidden="true">{text}</span>
+      <span className="ai__typed" aria-hidden="true">{typed}{typed.length > 0 && typed.length < text.length && <span className="ai__caret" />}</span>
       <span className="sr-only">{text}</span>
     </p>
   );
@@ -1003,11 +1036,58 @@ function buildWeekPoints(entries) {
   return pts;
 }
 
+/* Intro van Linde AI op Vandaag: één keer per bezoek, zodra de kaart in beeld komt.
+   Het bolletje verschijnt groot in het midden van de kaart, ademt even en
+   vliegt dan naar zijn plek in de kop. Daarna komt de titel en typt Linde AI. */
+const INTRO = { fly: 1500, title: 1050, text: 1300 };
+let lindeIntroPlayed = false;
+
 function LindeToday({ log, now, todayEntry, onChat }) {
   const text = buildDayBrief(log, now, todayEntry);
+  const reduce = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const [phase, setPhase] = useState(() => (lindeIntroPlayed || reduce ? "done" : "wait"));
+  const cardRef = useRef(null);
+  const orbRef = useRef(null);
+
+  useEffect(() => {
+    if (phase !== "wait") return undefined;
+    const go = () => { lindeIntroPlayed = true; setPhase("intro"); };
+    const el = cardRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") { go(); return undefined; }
+    const io = new IntersectionObserver((list) => {
+      if (list.some((e) => e.isIntersecting)) { io.disconnect(); go(); }
+    }, { threshold: 0.45 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [phase]);
+
+  useLayoutEffect(() => {
+    if (phase !== "intro") return undefined;
+    const card = cardRef.current;
+    const orb = orbRef.current;
+    if (!card || !orb || !orb.animate) return undefined;
+    const cr = card.getBoundingClientRect();
+    const or = orb.getBoundingClientRect();
+    const k = cr.width / card.offsetWidth || 1; // in de simulator is alles geschaald
+    const dx = (cr.left + cr.width / 2 - (or.left + or.width / 2)) / k;
+    const dy = (cr.top + cr.height / 2 - (or.top + or.height / 2)) / k;
+    const at = (sc) => `translate(${dx}px, ${dy}px) scale(${sc})`;
+    const anim = orb.animate([
+      { transform: at(0), opacity: 0, easing: "cubic-bezier(.2, .9, .25, 1.4)" },
+      { transform: at(2.6), opacity: 1, offset: 0.3, easing: "ease-in-out" },
+      { transform: at(2.25), offset: 0.44, easing: "ease-in-out" },
+      { transform: at(2.45), offset: 0.56, easing: "cubic-bezier(.5, 0, .2, 1.3)" },
+      { transform: "translate(0px, 0px) scale(1)", opacity: 1 },
+    ], { duration: INTRO.fly, fill: "backwards" });
+    return () => anim.cancel();
+  }, [phase]);
+
+  const chipsAt = INTRO.text + typeDuration(text) + 120;
   return (
-    <AiCard title={LINDE.name} subtitle="Je dag in het kort" className="ai--patient">
-      <AiText text={text} />
+    <AiCard title={LINDE.name} subtitle="Je dag in het kort" cardRef={cardRef} orbRef={orbRef}
+      className={cx("ai--patient", phase === "wait" && "is-wait", phase === "intro" && "is-intro")}
+      style={{ "--chips-at": `${chipsAt}ms`, "--title-at": `${INTRO.title}ms` }}>
+      <AiText text={text} start={phase !== "wait"} instant={phase === "done"} delay={phase === "intro" ? INTRO.text : 0} />
       <div className="ai__chips">
         <button type="button" className="ai__ask" onClick={() => onChat()}><Icon name="chat" size={16} />Praat met {LINDE.name}</button>
         <button type="button" className="ai__q" onClick={() => onChat("Tips om te ontspannen")}>Tips om te ontspannen</button>
@@ -1017,9 +1097,11 @@ function LindeToday({ log, now, todayEntry, onChat }) {
 }
 
 function LindeWeek({ entries, range, onChat }) {
+  const [open, setOpen] = useState(false);
   const points = buildWeekPoints(entries);
   return (
-    <AiCard title={LINDE.name} subtitle={`Samenvatting van ${range} dagen`} className="ai--patient">
+    <AiCard title={LINDE.name} subtitle={`Samenvatting van ${range} dagen`} className="ai--patient"
+      collapsible open={open} onToggle={() => setOpen(!open)}>
       <ul className="ai__points">
         {points.map((t) => <li key={t}>{t}</li>)}
       </ul>
@@ -3419,6 +3501,8 @@ body { margin: 0; background: var(--bg); }
 .mchart__x { font-family: var(--font-ui); font-size: 11.5px; fill: var(--ink-3); font-weight: 500; }
 .mchart__x.is-today { fill: var(--ink); font-weight: 700; }
 .tip { position: absolute; z-index: 2; transform: translate(-50%, calc(-100% - 12px)); display: flex; flex-direction: column; padding: 7px 11px; border-radius: 10px; background: var(--ink); color: var(--bg); font-size: 12.5px; line-height: 1.3; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-2); }
+.tip--start { transform: translate(-18px, calc(-100% - 12px)); }
+.tip--end { transform: translate(calc(-100% + 8px), calc(-100% - 12px)); }
 .tip__day { opacity: .75; }
 .tip__val { font-weight: 700; }
 .tableview summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-2); width: max-content; }
@@ -3924,20 +4008,63 @@ body { margin: 0; background: var(--bg); }
 .ai__inner::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(75, 59, 192, .08) 1px, transparent 1px); background-size: 14px 14px; -webkit-mask-image: linear-gradient(to bottom, #000, transparent 75%); mask-image: linear-gradient(to bottom, #000, transparent 75%); }
 .ai--compact .ai__inner { padding: 14px; }
 .ai__head { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.linde-orb { flex: none; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 28%, #C9D1FF, #6250D6 58%, #2E7D68); box-shadow: 0 0 0 3px rgba(142, 160, 255, .2), 0 6px 16px -6px rgba(98, 80, 214, .65); }
-.ai__titles { flex: 1; min-width: 0; }
-.ai__title { font-size: 16px; font-weight: 700; line-height: 1.2; }
+.ai__orb { position: relative; flex: none; display: grid; border-radius: 50%; }
+.linde-orb { position: relative; overflow: hidden; flex: none; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 28%, #C9D1FF, #6250D6 58%, #2E7D68); box-shadow: 0 0 0 3px rgba(142, 160, 255, .2), 0 6px 16px -6px rgba(98, 80, 214, .65); }
+/* Een zachte kleurwervel in het bolletje, zodat het "leeft". */
+.linde-orb::before { content: ""; position: absolute; inset: -30%; background: conic-gradient(from 0deg, transparent, rgba(215, 166, 255, .8), transparent 30%, rgba(111, 211, 181, .7), transparent 62%, rgba(142, 160, 255, .85), transparent 90%); filter: blur(3px); opacity: .75; animation: orb-swirl 7s linear infinite; }
+.linde-orb svg { position: relative; }
+@keyframes orb-swirl { to { transform: rotate(1turn); } }
+.ai__titles { display: block; flex: 1; min-width: 0; }
+.ai__title { display: block; font-size: 16px; font-weight: 700; line-height: 1.2; }
 .ai__brand { white-space: nowrap; }
 .ai__ai { background: linear-gradient(100deg, #5B48CF, #2E7D68); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
 @media (forced-colors: active) { .ai__ai { color: CanvasText; background: none; } }
-.ai__sub { font-size: 12.5px; color: var(--ink-2); }
+.ai__sub { display: block; font-size: 12.5px; color: var(--ink-2); }
 .ai__tools { display: flex; gap: 2px; }
 .ai__tool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 600; }
 .ai__tool:hover { background: var(--surface-3); color: var(--ink); }
-.ai__text { position: relative; min-height: 3em; font-size: 15.5px; line-height: 1.55; color: var(--ink); }
+.ai__text { position: relative; font-size: 15.5px; line-height: 1.55; color: var(--ink); }
+.ai__ghost { visibility: hidden; }
+.ai__typed { position: absolute; inset: 0; }
 .ai__text--sm { min-height: 0; font-size: 14.5px; }
 .ai__caret { display: inline-block; width: 7px; height: 1.05em; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: linear-gradient(180deg, #8EA0FF, #6FD3B5); animation: caret .8s steps(2) infinite; }
 @keyframes caret { 50% { opacity: 0; } }
+
+/* Uitklapbare kaart (Verloop) */
+.ai__toggle { width: calc(100% + 12px); margin: -6px; padding: 6px; border: 0; border-radius: 16px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ai--collapsible .ai__head { margin-bottom: -6px; }
+@media (hover: hover) { .ai__toggle:hover { background: rgba(142, 160, 255, .08); } }
+.ai__chev { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(142, 160, 255, .12); color: #3B2F9A; transform: rotate(90deg); transition: transform .3s var(--ease); }
+.ai--collapsible.is-open .ai__chev { transform: rotate(-90deg); }
+.ai__collapse { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .38s var(--ease); }
+.ai--collapsible.is-open .ai__collapse { grid-template-rows: 1fr; }
+.ai__collapsein { position: relative; min-height: 0; overflow: hidden; }
+.ai__collapsein > :first-child { margin-top: 14px; }
+.ai--collapsible .ai__collapsein > * { opacity: 0; transition: opacity .2s; }
+.ai--collapsible.is-open .ai__collapsein > * { opacity: 1; transition: opacity .3s .08s; }
+.ai--collapsible:not(.is-open) .ai__points li { animation: none; }
+
+/* Intro van Linde AI op Vandaag */
+.ai.is-wait { opacity: 0; }
+.ai.is-intro { animation: ai-card-in .5s var(--ease) both, ai-spin-fast 1.9s cubic-bezier(.25, .1, .2, 1) both, ai-bloom 2s ease-out both, ai-spin 12s linear 1.9s infinite; }
+@keyframes ai-card-in { from { opacity: 0; transform: translateY(12px) scale(.97); } }
+@keyframes ai-spin-fast { from { --ai-angle: 0deg; } to { --ai-angle: 720deg; } }
+@keyframes ai-bloom {
+  0%, 100% { box-shadow: 0 18px 40px -28px rgba(98, 80, 214, .55); }
+  35% { box-shadow: 0 0 0 1px rgba(142, 160, 255, .25), 0 0 38px 4px rgba(142, 160, 255, .5), 0 0 70px 12px rgba(111, 211, 181, .25); }
+}
+.ai.is-intro .ai__inner::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(55% 65% at 50% 50%, rgba(142, 160, 255, .3), rgba(215, 166, 255, .14) 45%, transparent 72%); animation: ai-flash 1.7s ease-out both; }
+@keyframes ai-flash { 0% { opacity: 0; transform: scale(.6); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.25); } }
+.ai.is-intro .ai__orb { z-index: 2; }
+.ai.is-intro .ai__orb::before { content: ""; position: absolute; inset: -45%; z-index: -1; border-radius: 50%; background: radial-gradient(circle, rgba(142, 160, 255, .6), rgba(215, 166, 255, .28) 45%, transparent 70%); filter: blur(4px); animation: orb-glow 1.6s ease-out both; }
+@keyframes orb-glow { 0% { opacity: 0; } 25%, 60% { opacity: 1; } 100% { opacity: 0; } }
+.ai.is-intro .ai__orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(142, 160, 255, .75); opacity: 0; pointer-events: none; animation: orb-ripple .75s ease-out 1.4s forwards; }
+@keyframes orb-ripple { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(2.3); } }
+.ai.is-intro .linde-orb > svg { animation: orb-icon 1.5s cubic-bezier(.3, .7, .2, 1) both; }
+@keyframes orb-icon { 0% { opacity: 0; transform: rotate(-200deg) scale(.3); } 35% { opacity: 1; } 100% { transform: none; } }
+.ai.is-intro .ai__titles { animation: ai-title-in .55s var(--ease) var(--title-at, 1s) both; }
+@keyframes ai-title-in { from { opacity: 0; transform: translateX(-10px); } }
+.ai.is-intro .ai__chips { animation: ai-in .5s var(--ease) var(--chips-at, 2.4s) both; }
 .ai__points { position: relative; display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
 .ai__points li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.45; color: var(--ink); animation: ai-in .5s var(--ease) both; }
 .ai__points li:nth-child(2) { animation-delay: .08s; }
