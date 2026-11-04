@@ -873,21 +873,22 @@ function DisclaimerModal({ open, onClose }) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Lumi AI — chatbot (demo)
+   Linde AI — chatbot (demo)
    "AI" hoort bij de naam, zodat niemand denkt met een medewerker te
-   chatten. Lumi AI is niet gekoppeld aan een taalmodel: alle teksten
+   chatten. Niet "Lumi" noemen: zo heet de echte chat- en hulplijn van
+   çavaria (lumi.be). Linde AI is niet gekoppeld aan een taalmodel: alle teksten
    worden met eenvoudige regels uit de gegevens van de demo opgebouwd.
-   Bij woorden die op een crisis wijzen, verwijst Lumi AI altijd door
+   Bij woorden die op een crisis wijzen, verwijst Linde AI altijd door
    naar het team.
    ════════════════════════════════════════════════════════════════ */
 
-const LUMI = { name: "Lumi AI", tagline: "Chatbot · geen mens" };
+const LINDE = { name: "Linde AI", tagline: "Chatbot · geen mens" };
 const MOOD_PHRASE = ["heel slecht", "niet goed", "redelijk", "goed", "heel goed"];
 const ACT_VERB = {
   Wandelen: "ging wandelen", Groepsactiviteit: "meedeed aan een groepsactiviteit", Gesprek: "een gesprek had",
   Lezen: "las", Rusten: "rustte", Creatief: "creatief bezig was", "Samen eten": "samen at", Muziek: "naar muziek luisterde",
 };
-const LUMI_CHIPS = ["Wat staat er nog op de planning?", "Hoe was mijn week?", "Tips om te ontspannen", "Ik wil met iemand praten"];
+const LINDE_CHIPS = ["Wat staat er nog op de planning?", "Hoe was mijn week?", "Tips om te ontspannen", "Ik wil met iemand praten"];
 const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 
 function useTypewriter(text, runKey = 0) {
@@ -907,20 +908,20 @@ function useTypewriter(text, runKey = 0) {
   return text.slice(0, n);
 }
 
-function LumiOrb({ size = 36 }) {
+function LindeOrb({ size = 36 }) {
   return (
-    <span className="lumi-orb" style={{ width: size, height: size }} aria-hidden="true">
+    <span className="linde-orb" style={{ width: size, height: size }} aria-hidden="true">
       <Icon name="sparkles" size={Math.round(size * 0.5)} stroke={1.8} />
     </span>
   );
 }
 
-/* Toont "Lumi AI" in een tekst met het woord "AI" in het kleurverloop van Lumi. */
-function LumiText({ text }) {
-  const parts = text.split(LUMI.name);
+/* Toont "Linde AI" in een tekst met het woord "AI" in het kleurverloop van Linde. */
+function LindeText({ text }) {
+  const parts = text.split(LINDE.name);
   return parts.map((part, i) => (
     <Fragment key={i}>
-      {i > 0 && <span className="ai__brand">Lumi <span className="ai__ai">AI</span></span>}
+      {i > 0 && <span className="ai__brand">Linde <span className="ai__ai">AI</span></span>}
       {part}
     </Fragment>
   ));
@@ -931,9 +932,9 @@ function AiCard({ title, subtitle, tools, children, className, compact }) {
     <section className={cx("ai", compact && "ai--compact", className)} aria-label={title}>
       <div className="ai__inner">
         <header className="ai__head">
-          <LumiOrb size={compact ? 30 : 36} />
+          <LindeOrb size={compact ? 30 : 36} />
           <div className="ai__titles">
-            <p className="ai__title"><LumiText text={title} /></p>
+            <p className="ai__title"><LindeText text={title} /></p>
             {subtitle && <p className="ai__sub">{subtitle}</p>}
           </div>
           {tools && <div className="ai__tools">{tools}</div>}
@@ -944,7 +945,7 @@ function AiCard({ title, subtitle, tools, children, className, compact }) {
   );
 }
 
-/* Tekst die verschijnt alsof Lumi hem schrijft; schermlezers krijgen meteen de volledige tekst. */
+/* Tekst die verschijnt alsof Linde hem schrijft; schermlezers krijgen meteen de volledige tekst. */
 function AiText({ text, runKey, className }) {
   const typed = useTypewriter(text, runKey);
   return (
@@ -1002,37 +1003,37 @@ function buildWeekPoints(entries) {
   return pts;
 }
 
-function LumiToday({ log, now, todayEntry, onChat }) {
+function LindeToday({ log, now, todayEntry, onChat }) {
   const text = buildDayBrief(log, now, todayEntry);
   return (
-    <AiCard title={LUMI.name} subtitle="Je dag in het kort" className="ai--patient">
+    <AiCard title={LINDE.name} subtitle="Je dag in het kort" className="ai--patient">
       <AiText text={text} />
       <div className="ai__chips">
-        <button type="button" className="ai__ask" onClick={() => onChat()}><Icon name="chat" size={16} />Praat met {LUMI.name}</button>
+        <button type="button" className="ai__ask" onClick={() => onChat()}><Icon name="chat" size={16} />Praat met {LINDE.name}</button>
         <button type="button" className="ai__q" onClick={() => onChat("Tips om te ontspannen")}>Tips om te ontspannen</button>
       </div>
     </AiCard>
   );
 }
 
-function LumiWeek({ entries, range, onChat }) {
+function LindeWeek({ entries, range, onChat }) {
   const points = buildWeekPoints(entries);
   return (
-    <AiCard title={LUMI.name} subtitle={`Samenvatting van ${range} dagen`} className="ai--patient">
+    <AiCard title={LINDE.name} subtitle={`Samenvatting van ${range} dagen`} className="ai--patient">
       <ul className="ai__points">
         {points.map((t) => <li key={t}>{t}</li>)}
       </ul>
       <div className="ai__chips">
-        <button type="button" className="ai__ask" onClick={() => onChat("Hoe was mijn week?")}><Icon name="chat" size={16} />Vraag {LUMI.name} meer</button>
+        <button type="button" className="ai__ask" onClick={() => onChat("Hoe was mijn week?")}><Icon name="chat" size={16} />Vraag {LINDE.name} meer</button>
       </div>
-      <p className="ai__fine">{LUMI.name} kan zich vergissen en ziet niet alles. Bespreek wat belangrijk is met je begeleider.</p>
+      <p className="ai__fine">{LINDE.name} kan zich vergissen en ziet niet alles. Bespreek wat belangrijk is met je begeleider.</p>
     </AiCard>
   );
 }
 
 const normText = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function lumiReply(raw, ctx) {
+function lindeReply(raw, ctx) {
   const t = normText(raw);
   const has = (re) => re.test(t);
   const week = weekEntries(ctx.log, ctx.now);
@@ -1044,8 +1045,8 @@ function lumiReply(raw, ctx) {
       actions: [{ id: "call", label: "Vraag nu een begeleider" }],
     };
   }
-  if (has(/\b(hoi|hallo|hey|hai|hello|goeiemorgen|goedemorgen|goedemiddag|goedenavond|dag lumi)\b/)) {
-    return { text: `Hoi ${SELF.firstName}! Waar kan ik je mee helpen?`, chips: LUMI_CHIPS };
+  if (has(/\b(hoi|hallo|hey|hai|hello|goeiemorgen|goedemorgen|goedemiddag|goedenavond|dag linde)\b/)) {
+    return { text: `Hoi ${SELF.firstName}! Waar kan ik je mee helpen?`, chips: LINDE_CHIPS };
   }
   if (has(/\b(bedankt|dankje|dankjewel|dank je|merci|thanks|thx)\b/)) {
     return { text: "Graag gedaan. Ik ben er als je nog iets wil vragen." };
@@ -1103,15 +1104,15 @@ function lumiReply(raw, ctx) {
   return {
     text: "Dank je om dat te delen. Ik ben een digitale assistent, dus ik begrijp niet alles even goed. Wil je dit liever met iemand van het team bespreken?",
     actions: [{ id: "talk", label: "Zet een gespreksvraag klaar" }],
-    chips: LUMI_CHIPS,
+    chips: LINDE_CHIPS,
   };
 }
 
-function LumiChat({ initial, ctx, onClose, onAction }) {
+function LindeChat({ initial, ctx, onClose, onAction }) {
   const [msgs, setMsgs] = useState(() => [{
-    id: "hello", from: "lumi",
-    text: `Hoi ${SELF.firstName}, ik ben ${LUMI.name} 👋 Ik ben een chatbot, geen mens. Ik help je met kleine vragen over je dag, je verloop of om even tot rust te komen. Voor iets dringends vraag je meteen een begeleider.`,
-    chips: LUMI_CHIPS,
+    id: "hello", from: "linde",
+    text: `Hoi ${SELF.firstName}, ik ben ${LINDE.name} 👋 Ik ben een chatbot, geen mens. Ik help je met kleine vragen over je dag, je verloop of om even tot rust te komen. Voor iets dringends vraag je meteen een begeleider.`,
+    chips: LINDE_CHIPS,
   }]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -1135,13 +1136,13 @@ function LumiChat({ initial, ctx, onClose, onAction }) {
     push({ from: "me", text: clean });
     setInput("");
     setTyping(true);
-    const reply = lumiReply(clean, ctxRef.current);
-    later(() => { push({ from: "lumi", ...reply }); setTyping(false); }, reply.urgent ? 450 : 650 + Math.min(900, reply.text.length * 6));
+    const reply = lindeReply(clean, ctxRef.current);
+    later(() => { push({ from: "linde", ...reply }); setTyping(false); }, reply.urgent ? 450 : 650 + Math.min(900, reply.text.length * 6));
   };
 
   const act = (id) => {
     const result = onAction(id);
-    if (result) later(() => push({ from: "lumi", text: result }), 250);
+    if (result) later(() => push({ from: "linde", text: result }), 250);
   };
 
   useEffect(() => {
@@ -1155,16 +1156,16 @@ function LumiChat({ initial, ctx, onClose, onAction }) {
   }, [msgs, typing]);
 
   const last = msgs[msgs.length - 1];
-  const chips = !typing && last?.from === "lumi" && last.chips?.length ? last.chips : null;
+  const chips = !typing && last?.from === "linde" && last.chips?.length ? last.chips : null;
 
   return (
     <div className="chat" role="dialog" aria-modal="true" aria-labelledby={tid}>
       <header className="chat__head">
         <button type="button" className="iconbtn iconbtn--plain" onClick={onClose} aria-label="Terug"><Icon name="chevronLeft" size={22} /></button>
-        <LumiOrb size={38} />
+        <LindeOrb size={38} />
         <div className="chat__who">
-          <p className="chat__name" id={tid}><LumiText text={LUMI.name} /></p>
-          <p className="chat__sub">{LUMI.tagline}</p>
+          <p className="chat__name" id={tid}><LindeText text={LINDE.name} /></p>
+          <p className="chat__sub">{LINDE.tagline}</p>
         </div>
       </header>
 
@@ -1174,7 +1175,7 @@ function LumiChat({ initial, ctx, onClose, onAction }) {
           <p>{ctx.callAck ? `${STAFF_USER.firstName} komt naar je toe.` : `Je vroeg om ${fmtTime(ctx.callAt)} een begeleider. Iemand komt zo snel mogelijk.`}</p>
         ) : (
           <>
-            <p>{LUMI.name} is er voor kleine vragen, niet voor noodgevallen.</p>
+            <p>{LINDE.name} is er voor kleine vragen, niet voor noodgevallen.</p>
             <button type="button" className="btn btn--xs chat__urgent" onClick={() => act("call")}>Vraag een begeleider</button>
           </>
         )}
@@ -1183,7 +1184,7 @@ function LumiChat({ initial, ctx, onClose, onAction }) {
       <div className="chat__list" ref={listRef} aria-live="polite">
         {msgs.map((m) => (
           <div key={m.id} className={cx("msg", `msg--${m.from}`, m.urgent && "msg--urgent")}>
-            {m.from === "lumi" && <span className="sr-only">{LUMI.name}: </span>}
+            {m.from === "linde" && <span className="sr-only">{LINDE.name}: </span>}
             <p>{m.text}</p>
             {m.actions?.length > 0 && (
               <div className="msg__actions">
@@ -1196,7 +1197,7 @@ function LumiChat({ initial, ctx, onClose, onAction }) {
             )}
           </div>
         ))}
-        {typing && <div className="msg msg--lumi msg--typing" aria-label={`${LUMI.name} typt`}><i /><i /><i /></div>}
+        {typing && <div className="msg msg--linde msg--typing" aria-label={`${LINDE.name} typt`}><i /><i /><i /></div>}
       </div>
 
       {chips && (
@@ -1206,16 +1207,16 @@ function LumiChat({ initial, ctx, onClose, onAction }) {
       )}
 
       <form className="chat__form" onSubmit={(e) => { e.preventDefault(); send(input); }}>
-        <label className="sr-only" htmlFor={iid}>Bericht aan {LUMI.name}</label>
+        <label className="sr-only" htmlFor={iid}>Bericht aan {LINDE.name}</label>
         <input id={iid} ref={inputRef} className="chat__input" value={input} onChange={(e) => setInput(e.target.value)}
-          placeholder={`Typ een bericht aan ${LUMI.name}…`} autoComplete="off" enterKeyHint="send" />
+          placeholder={`Typ een bericht aan ${LINDE.name}…`} autoComplete="off" enterKeyHint="send" />
         <button type="submit" className="chat__send" aria-label="Verstuur" disabled={!input.trim()}><Icon name="send" size={18} /></button>
       </form>
     </div>
   );
 }
 
-/* Lumi voor de begeleiding */
+/* Linde voor de begeleiding */
 function suggestionFor(p) {
   const has = (prefix) => p.a.signals.some((s) => s.text.startsWith(prefix));
   if (p.callAt && !p.callAck) return "Ga zo snel mogelijk langs: vraagt nu een begeleider via de app.";
@@ -1231,7 +1232,7 @@ function suggestionFor(p) {
   return "Geen bijzondere actie nodig; een kort contactmoment volstaat.";
 }
 
-function lumiPatientSummary(p) {
+function lindePatientSummary(p) {
   const c = p.checkin;
   const fn = firstName(p.name);
   if (!c) return `${fn} vulde vandaag nog geen check-in in. Suggestie: ${lowerFirst(suggestionFor(p))}`;
@@ -1279,14 +1280,14 @@ function buildBriefing(rows) {
   return { intro, points };
 }
 
-function LumiBriefing({ rows, now, onSelect }) {
+function LindeBriefing({ rows, now, onSelect }) {
   const [gen, setGen] = useState(0);
   const [open, setOpen] = useState(true);
   const brief = useMemo(() => buildBriefing(rows), [rows]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const at = useMemo(() => new Date(), [gen]);
   return (
-    <AiCard title={`${LUMI.name}-briefing`} subtitle={`Samenvatting van je dienst · ${fmtTime(at)}`} className="ai--staff"
+    <AiCard title={`${LINDE.name}-briefing`} subtitle={`Samenvatting van je dienst · ${fmtTime(at)}`} className="ai--staff"
       tools={(
         <>
           <button type="button" className="ai__tool" onClick={() => setGen((g) => g + 1)} title="Opnieuw genereren" aria-label="Vernieuw"><Icon name="sync" size={15} /><span className="ai__toollabel">Vernieuw</span></button>
@@ -1308,7 +1309,7 @@ function LumiBriefing({ rows, now, onSelect }) {
               ))}
             </ul>
           )}
-          <p className="ai__fine">{LUMI.name} is een demo en maakt suggesties op basis van de check-ins. Weeg altijd zelf af, samen met het team.</p>
+          <p className="ai__fine">{LINDE.name} is een demo en maakt suggesties op basis van de check-ins. Weeg altijd zelf af, samen met het team.</p>
         </>
       )}
     </AiCard>
@@ -1578,7 +1579,7 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
       </div>
 
       {chat && !simple && (
-        <LumiChat key={chat.key} initial={chat.q} onClose={() => setChat(null)} onAction={chatAction}
+        <LindeChat key={chat.key} initial={chat.q} onClose={() => setChat(null)} onAction={chatAction}
           ctx={{ now, log: selfLog, todayEntry, callAt, callAck }} />
       )}
 
@@ -1721,7 +1722,7 @@ function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck
             </section>
           )}
 
-          <LumiToday log={selfLog} now={now} todayEntry={todayEntry} onChat={onChat} />
+          <LindeToday log={selfLog} now={now} todayEntry={todayEntry} onChat={onChat} />
         </div>
         <div className="col">
           <section className="block">
@@ -1831,7 +1832,7 @@ function HistoryTab({ log, now, onChat }) {
         ))}
       </div>
 
-      <LumiWeek entries={done} range={range} onChat={onChat} />
+      <LindeWeek entries={done} range={range} onChat={onChat} />
 
       <div className="cols">
         <div className="col">
@@ -2754,7 +2755,7 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
             </header>
             <div className="sm__content">
               <StatStrip rows={rows} />
-              <LumiBriefing rows={rows} now={now} onSelect={selectFromBrief} />
+              <LindeBriefing rows={rows} now={now} onSelect={selectFromBrief} />
               <div className="split">
                 <div className="ptable" ref={listRef} onKeyDown={onListKey}>
                   <div className="toolbar">
@@ -3021,8 +3022,8 @@ function PatientDetail({ p, now, actions, onClose }) {
               </div>
             )}
 
-            <AiCard compact title={LUMI.name} subtitle="Suggestie voor vandaag" className="ai--staff">
-              <AiText text={lumiPatientSummary(p)} className="ai__text--sm" />
+            <AiCard compact title={LINDE.name} subtitle="Suggestie voor vandaag" className="ai--staff">
+              <AiText text={lindePatientSummary(p)} className="ai__text--sm" />
               <div className="ai__chips">
                 <button type="button" className="ai__q" onClick={concept}><Icon name="pencil" size={14} />Schrijf concept-rapportering</button>
               </div>
@@ -3121,14 +3122,14 @@ function NotesBox({ p, value, byAi, onChange, onConcept, onAdd }) {
     <section className="dw__sec">
       <div className="notes__head">
         <h3 className="dw__h">Nieuwe rapportering</h3>
-        <button type="button" className="ai__q ai__q--sm" onClick={onConcept}><Icon name="sparkles" size={14} />Concept door {LUMI.name}</button>
+        <button type="button" className="ai__q ai__q--sm" onClick={onConcept}><Icon name="sparkles" size={14} />Concept door {LINDE.name}</button>
       </div>
       <label className="sr-only" htmlFor={id}>Nieuwe rapportering over {firstName(p.name)}</label>
       <textarea id={id} className={cx("textarea textarea--sm", byAi && "is-ai")} rows={byAi ? 6 : 3} value={value}
         placeholder={`Korte notitie over ${firstName(p.name)}…`}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save(); }} />
-      {byAi && <p className="notes__ai"><Icon name="sparkles" size={13} />Concept door {LUMI.name}. Lees het na en pas aan waar nodig.</p>}
+      {byAi && <p className="notes__ai"><Icon name="sparkles" size={13} />Concept door {LINDE.name}. Lees het na en pas aan waar nodig.</p>}
       <div className="notes__actions">
         <span className="muted small">Ctrl + Enter om op te slaan</span>
         <button type="button" className="btn btn--primary btn--sm" disabled={!value.trim()} onClick={save}><Icon name="send" size={15} />Opslaan in dossier</button>
@@ -3141,7 +3142,7 @@ function NotesBox({ p, value, byAi, onChange, onConcept, onAdd }) {
             <li key={n.at.toISOString()} className="note">
               <p>{n.text}</p>
               <p className="note__meta">
-                {n.author} · {fmtTime(n.at)}{n.ai && <> · met {LUMI.name}</>} · <Icon name="shield" size={12} />in {ORG.epd}
+                {n.author} · {fmtTime(n.at)}{n.ai && <> · met {LINDE.name}</>} · <Icon name="shield" size={12} />in {ORG.epd}
               </p>
             </li>
           ))}
@@ -3185,7 +3186,7 @@ function Handover({ rows, now, onDisclaimer }) {
         </div>
       </header>
       <div className="sm__content ho">
-        <AiCard title={`Samenvatting door ${LUMI.name}`} subtitle={`Voor de ${nextShiftName(now)}`} className="ai--staff ho__ai">
+        <AiCard title={`Samenvatting door ${LINDE.name}`} subtitle={`Voor de ${nextShiftName(now)}`} className="ai--staff ho__ai">
           <AiText text={brief.intro} />
           {brief.points.length > 0 && (
             <ul className="ai__points">
@@ -3915,7 +3916,7 @@ body { margin: 0; background: var(--bg); }
 .s-done__speak { margin: 22px 0 14px; }
 .app[data-mode="simple"] .syncline { font-size: 15px; }
 
-/* ════ Lumi (AI-assistent) ═══════════════════════════════ */
+/* ════ Linde (AI-assistent) ═══════════════════════════════ */
 @property --ai-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
 .ai { position: relative; padding: 1.5px; border-radius: 24px; background: conic-gradient(from var(--ai-angle), #6FD3B5, #8EA0FF, #D7A6FF, #F7CF7A, #6FD3B5); animation: ai-spin 12s linear infinite; box-shadow: 0 18px 40px -28px rgba(98, 80, 214, .55); }
 @keyframes ai-spin { to { --ai-angle: 360deg; } }
@@ -3923,7 +3924,7 @@ body { margin: 0; background: var(--bg); }
 .ai__inner::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(75, 59, 192, .08) 1px, transparent 1px); background-size: 14px 14px; -webkit-mask-image: linear-gradient(to bottom, #000, transparent 75%); mask-image: linear-gradient(to bottom, #000, transparent 75%); }
 .ai--compact .ai__inner { padding: 14px; }
 .ai__head { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.lumi-orb { flex: none; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 28%, #C9D1FF, #6250D6 58%, #2E7D68); box-shadow: 0 0 0 3px rgba(142, 160, 255, .2), 0 6px 16px -6px rgba(98, 80, 214, .65); }
+.linde-orb { flex: none; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 28%, #C9D1FF, #6250D6 58%, #2E7D68); box-shadow: 0 0 0 3px rgba(142, 160, 255, .2), 0 6px 16px -6px rgba(98, 80, 214, .65); }
 .ai__titles { flex: 1; min-width: 0; }
 .ai__title { font-size: 16px; font-weight: 700; line-height: 1.2; }
 .ai__brand { white-space: nowrap; }
@@ -3957,7 +3958,7 @@ body { margin: 0; background: var(--bg); }
 .ai__q:hover { background: rgba(142, 160, 255, .16); }
 .ai__q--sm { min-height: 32px; padding: 0 11px; font-size: 12.5px; }
 
-/* Chat met Lumi */
+/* Chat met Linde */
 .chat { position: absolute; inset: 0; z-index: 55; display: flex; flex-direction: column; background: var(--bg); animation: flow-in .3s var(--ease); }
 .chat__head { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(var(--sat) + 6px) 14px 10px 8px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .chat__who { flex: 1; min-width: 0; }
@@ -3969,7 +3970,7 @@ body { margin: 0; background: var(--bg); }
 .chat__urgent { flex: none; background: var(--surface); border-color: var(--warn); color: var(--warn-ink); }
 .chat__list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding: 16px 14px; }
 .msg { max-width: min(84%, 560px); padding: 10px 14px; border-radius: 20px; font-size: 15.5px; line-height: 1.45; animation: ai-in .3s var(--ease) both; }
-.msg--lumi { align-self: flex-start; border: 1px solid var(--line); border-bottom-left-radius: 6px; background: var(--surface); box-shadow: var(--shadow-1); }
+.msg--linde { align-self: flex-start; border: 1px solid var(--line); border-bottom-left-radius: 6px; background: var(--surface); box-shadow: var(--shadow-1); }
 .msg--me { align-self: flex-end; border-bottom-right-radius: 6px; background: var(--brand); color: var(--brand-ink); }
 .msg--urgent { border-color: var(--warn); background: var(--warn-soft); color: var(--ink); }
 .msg__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
