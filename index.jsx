@@ -1019,7 +1019,7 @@ function PatientStage(props) {
             <div className="device__screen" style={desktop ? { "--sat": `${device.sat}px`, "--sab": `${device.sab}px` } : undefined}>
               {desktop && <StatusBar device={deviceId} now={now} />}
               {desktop && deviceId === "iphone" && <span className="device__island" aria-hidden="true" />}
-              <PatientApp {...props} />
+              <PatientApp {...props} inSimulator={desktop} />
               {desktop && <span className="device__home" aria-hidden="true" />}
             </div>
           </div>
@@ -1040,7 +1040,7 @@ function PatientStage(props) {
    Patiënt-app
    ════════════════════════════════════════════════════════════════ */
 
-function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now, onSubmit, toStaff, onReset }) {
+function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now, onSubmit, toStaff, onReset, inSimulator }) {
   const [tab, setTab] = useState("today");
   const [flow, setFlow] = useState(null);
   const [menu, setMenu] = useState(false);
@@ -1092,7 +1092,7 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
                   callAt={callAt} callAck={callAck} onStart={() => openFlow(0)}
                   onQuickMood={(v) => { update({ mood: v }); openFlow(1); }}
                   onSimple={() => setSimple(true)} onHistory={() => setTab("history")} onCalm={() => setTab("calm")}
-                  onDisclaimer={() => setDisc(true)} />
+                  onDisclaimer={inSimulator ? null : () => setDisc(true)} />
               )}
               {tab === "history" && <HistoryTab log={selfLog} now={now} />}
               {tab === "calm" && <CalmTab callAt={callAt} callAck={callAck} onCall={call} onCancelCall={cancelCall} />}
@@ -1123,7 +1123,7 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
 
       <MenuSheet open={menu} onClose={() => setMenu(false)} simple={simple} setSimple={setSimple}
         toStaff={() => { setMenu(false); toStaff(); }} onReset={() => { onReset(); setMenu(false); setTab("today"); }}
-        onDisclaimer={() => { setMenu(false); setDisc(true); }} />
+        onDisclaimer={inSimulator ? null : () => { setMenu(false); setDisc(true); }} />
 
       <Sheet open={disc} onClose={() => setDisc(false)} labelId={discTitle}>
         <DisclaimerBody titleId={discTitle} />
@@ -1174,7 +1174,7 @@ function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset, onDiscl
             </button>
           </li>
         </ul>
-        <p className="menu__fine"><DisclaimerButton onClick={onDisclaimer} /></p>
+        {onDisclaimer && <p className="menu__fine"><DisclaimerButton onClick={onDisclaimer} /></p>}
       </div>
     </Sheet>
   );
@@ -1280,7 +1280,7 @@ function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck
             <Icon name="chevronRight" size={18} />
           </button>
 
-          <p className="disclaimer"><DisclaimerButton onClick={onDisclaimer} /></p>
+          {onDisclaimer && <p className="disclaimer"><DisclaimerButton onClick={onDisclaimer} /></p>}
         </div>
       </div>
 
