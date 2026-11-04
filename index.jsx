@@ -979,7 +979,6 @@ function PatientStage(props) {
       {desktop && (
         <div className="simbar" role="toolbar" aria-label="Simulatie">
           <div className="simbar__actions">
-            <DisclaimerButton className="simbtn" onClick={() => setDisc(true)} />
             <button type="button" className="simbtn" onClick={toStaff}><Icon name="clipboard" size={15} />Bekijk begeleiding</button>
           </div>
           <div className="simbar__seg" role="group" aria-label="Toestel">
@@ -1026,6 +1025,11 @@ function PatientStage(props) {
         </div>
       </div>
 
+      {desktop && (
+        <button type="button" className="infobtn" onClick={() => setDisc(true)} aria-label="Disclaimer" title="Disclaimer" aria-haspopup="dialog">
+          <Icon name="info" size={18} />
+        </button>
+      )}
       <DisclaimerModal open={disc} onClose={() => setDisc(false)} />
     </div>
   );
@@ -2984,6 +2988,8 @@ body { margin: 0; background: var(--bg); }
 .simbar__actions { display: flex; align-items: center; gap: 8px; }
 .simbar .simbtn { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 16px 0 13px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--ink-2); font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: color .15s, border-color .15s; }
 .simbar .simbtn:hover { color: var(--ink); border-color: var(--line-strong); background: color-mix(in srgb, var(--surface) 85%, transparent); }
+.infobtn { position: fixed; right: 24px; bottom: 20px; z-index: 100; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--ink-3); box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: color .15s, border-color .15s; }
+.infobtn:hover { color: var(--ink); border-color: var(--line-strong); }
 .simbar__seg { display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface-3) 85%, transparent); box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .simbar__seg button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px 0 11px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 13.5px; font-weight: 600; transition: background .2s var(--ease), color .2s, box-shadow .2s; }
 .simbar__seg button:hover { color: var(--ink); }
