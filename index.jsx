@@ -952,7 +952,7 @@ function StatusBar({ device, now }) {
       <span>{fmtTime(now)}{device === "ipad" && <span className="device__date">{capitalize(fmtDayShort(now))}</span>}</span>
       <span className="device__icons">
         {device === "iphone" && <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg>}
-        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5 5.6 8.9a3.4 3.4 0 0 1 4.8 0Zm-4.2-4.4-1.5-1.6a8.1 8.1 0 0 1 11.4 0l-1.5 1.6a6 6 0 0 0-8.4 0ZM.4 3.6-.9 2a12 12 0 0 1 17.8 0l-1.3 1.6a10 10 0 0 0-15.2 0Z" /></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12"><path d="M1.43 3.93a10 10 0 0 1 14.14 0M3.9 6.4a6.5 6.5 0 0 1 9.2 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M8.5 11.6 6.2 9.3a3.25 3.25 0 0 1 4.6 0Z" /></svg>
         <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="22" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4" /><rect x="2" y="2" width="17" height="9" rx="2" /><path d="M24.5 4.5v4a2 2 0 0 0 0-4Z" opacity=".45" /></svg>
       </span>
     </div>
