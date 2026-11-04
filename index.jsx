@@ -923,7 +923,7 @@ export default function EMFIApp() {
 const DESKTOP_QUERY = "(min-width: 1024px) and (min-height: 560px) and (hover: hover) and (pointer: fine)";
 const DEVICES = {
   iphone: { label: "iPhone", icon: "phone", w: 393, h: 852, bezel: 12, sat: 54, sab: 20 },
-  ipad: { label: "iPad", icon: "tablet", w: 820, h: 1180, bezel: 22, sat: 26, sab: 20 },
+  ipad: { label: "iPad", icon: "tablet", w: 1180, h: 820, bezel: 22, sat: 26, sab: 20 },
 };
 
 function useFitScale(ref, device, enabled) {
@@ -975,7 +975,7 @@ function PatientStage(props) {
   const oh = device.h + device.bezel * 2;
 
   return (
-    <div className={cx("stage", desktop && "is-desktop")}>
+    <div className={cx("stage", desktop && "is-desktop", desktop && `is-${deviceId}`)}>
       {desktop && (
         <div className="simbar" role="toolbar" aria-label="Simulatie">
           <div className="simbar__seg" role="group" aria-label="Toestel">
@@ -1196,81 +1196,87 @@ function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck
         </button>
       )}
 
-      {todayEntry ? (
-        <section className="donecard" aria-label="Check-in van vandaag">
-          <div className="donecard__head">
-            <span className="donecard__check"><Icon name="check" size={20} stroke={3} /></span>
-            <div>
-              <p className="donecard__title">Check-in verstuurd</p>
-              <p className="donecard__sub">Vandaag om {fmtTime(todayEntry.at)}</p>
-            </div>
-          </div>
-          <div className="donecard__sum">
-            <MoodFace value={todayEntry.mood} size={44} tone />
-            <div className="donecard__sumtext">
-              <b>{MOODS[todayEntry.mood]}</b>
-              <span>{EMFI.map((d) => todayEntry.emfi[d.key]).filter(Boolean).join(" · ")}</span>
-            </div>
-          </div>
-          <div className="donecard__foot">
-            <SyncStatus at={todayEntry.at} short />
-            <button type="button" className="btn btn--secondary btn--sm" onClick={onStart}>Nieuwe check-in</button>
-          </div>
-        </section>
-      ) : (
-        <section className="cicard" aria-labelledby="cicard-title">
-          <div className="cicard__top">
-            <span className="cicard__chip"><Icon name="clock" size={14} />± 1 minuut</span>
-            <span>{capitalize(part)}check-in</span>
-          </div>
-          {remindedAt && <p className="cicard__remind"><Icon name="bell" size={15} />{STAFF_USER.firstName} vraagt of je je check-in wil invullen.</p>}
-          <h2 className="cicard__title" id="cicard-title">{started ? "Je check-in staat klaar" : "Hoe gaat het met je?"}</h2>
-          {started ? (
-            <>
-              <p className="cicard__sub">Je antwoorden zijn bewaard. Ga verder waar je was.</p>
-              <button type="button" className="btn btn--onbrand btn--block btn--lg" onClick={onStart}>Verder invullen <Icon name="arrowRight" size={18} /></button>
-            </>
-          ) : (
-            <>
-              <p className="cicard__sub">Tik op een gezicht om te beginnen.</p>
-              <div className="cicard__faces" role="group" aria-label="Kies je stemming om te beginnen">
-                {MOODS.map((label, v) => (
-                  <button key={v} type="button" className="cicard__face" style={{ "--tone": `var(--mood-${v})` }} onClick={() => onQuickMood(v)}>
-                    <MoodFace value={v} size={42} />
-                    <span>{label}</span>
-                  </button>
-                ))}
+      <div className="cols">
+        <div className="col">
+          {todayEntry ? (
+            <section className="donecard" aria-label="Check-in van vandaag">
+              <div className="donecard__head">
+                <span className="donecard__check"><Icon name="check" size={20} stroke={3} /></span>
+                <div>
+                  <p className="donecard__title">Check-in verstuurd</p>
+                  <p className="donecard__sub">Vandaag om {fmtTime(todayEntry.at)}</p>
+                </div>
               </div>
-            </>
+              <div className="donecard__sum">
+                <MoodFace value={todayEntry.mood} size={44} tone />
+                <div className="donecard__sumtext">
+                  <b>{MOODS[todayEntry.mood]}</b>
+                  <span>{EMFI.map((d) => todayEntry.emfi[d.key]).filter(Boolean).join(" · ")}</span>
+                </div>
+              </div>
+              <div className="donecard__foot">
+                <SyncStatus at={todayEntry.at} short />
+                <button type="button" className="btn btn--secondary btn--sm" onClick={onStart}>Nieuwe check-in</button>
+              </div>
+            </section>
+          ) : (
+            <section className="cicard" aria-labelledby="cicard-title">
+              <div className="cicard__top">
+                <span className="cicard__chip"><Icon name="clock" size={14} />± 1 minuut</span>
+                <span>{capitalize(part)}check-in</span>
+              </div>
+              {remindedAt && <p className="cicard__remind"><Icon name="bell" size={15} />{STAFF_USER.firstName} vraagt of je je check-in wil invullen.</p>}
+              <h2 className="cicard__title" id="cicard-title">{started ? "Je check-in staat klaar" : "Hoe gaat het met je?"}</h2>
+              {started ? (
+                <>
+                  <p className="cicard__sub">Je antwoorden zijn bewaard. Ga verder waar je was.</p>
+                  <button type="button" className="btn btn--onbrand btn--block btn--lg" onClick={onStart}>Verder invullen <Icon name="arrowRight" size={18} /></button>
+                </>
+              ) : (
+                <>
+                  <p className="cicard__sub">Tik op een gezicht om te beginnen.</p>
+                  <div className="cicard__faces" role="group" aria-label="Kies je stemming om te beginnen">
+                    {MOODS.map((label, v) => (
+                      <button key={v} type="button" className="cicard__face" style={{ "--tone": `var(--mood-${v})` }} onClick={() => onQuickMood(v)}>
+                        <MoodFace value={v} size={42} />
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
           )}
-        </section>
-      )}
 
-      <section className="block">
-        <div className="block__head">
-          <h2 className="block__title">Vandaag op {ORG.ward}</h2>
+          <section className="block">
+            <div className="block__head">
+              <h2 className="block__title">Vandaag op {ORG.ward}</h2>
+            </div>
+            <Schedule now={now} />
+          </section>
         </div>
-        <Schedule now={now} />
-      </section>
+        <div className="col">
+          <section className="block">
+            <div className="block__head">
+              <h2 className="block__title">Jouw week</h2>
+              <button type="button" className="link" onClick={onHistory}>Verloop<Icon name="chevronRight" size={16} /></button>
+            </div>
+            <WeekFaces log={selfLog} now={now} />
+          </section>
 
-      <section className="block">
-        <div className="block__head">
-          <h2 className="block__title">Jouw week</h2>
-          <button type="button" className="link" onClick={onHistory}>Verloop<Icon name="chevronRight" size={16} /></button>
+          <button type="button" className="simple-cta" onClick={onSimple}>
+            <span className="simple-cta__icon"><Icon name="simple" size={22} /></span>
+            <span className="simple-cta__body">
+              <span className="simple-cta__title">Liever eenvoudig?</span>
+              <span className="simple-cta__text">Eén vraag per keer, grote knoppen en voorlezen.</span>
+            </span>
+            <Icon name="chevronRight" size={18} />
+          </button>
+
+          <p className="disclaimer"><DisclaimerButton onClick={onDisclaimer} /></p>
         </div>
-        <WeekFaces log={selfLog} now={now} />
-      </section>
+      </div>
 
-      <button type="button" className="simple-cta" onClick={onSimple}>
-        <span className="simple-cta__icon"><Icon name="simple" size={22} /></span>
-        <span className="simple-cta__body">
-          <span className="simple-cta__title">Liever eenvoudig?</span>
-          <span className="simple-cta__text">Eén vraag per keer, grote knoppen en voorlezen.</span>
-        </span>
-        <Icon name="chevronRight" size={18} />
-      </button>
-
-      <p className="disclaimer"><DisclaimerButton onClick={onDisclaimer} /></p>
     </div>
   );
 }
@@ -1351,46 +1357,52 @@ function HistoryTab({ log, now }) {
         ))}
       </div>
 
-      <section className="card pad">
-        <dl className="stats">
-          <div><dt>Gemiddeld</dt><dd>{avg != null ? MOODS[Math.round(avg)] : "—"}</dd></div>
-          <div><dt>Slaap</dt><dd>{sleepAvg != null ? SLEEP[Math.round(sleepAvg)] : "—"}</dd></div>
-          <div><dt>Check-ins</dt><dd>{done.length} van {range}</dd></div>
-        </dl>
-        <MoodChart points={points} />
-      </section>
+      <div className="cols">
+        <div className="col">
+          <section className="card pad">
+            <dl className="stats">
+              <div><dt>Gemiddeld</dt><dd>{avg != null ? MOODS[Math.round(avg)] : "—"}</dd></div>
+              <div><dt>Slaap</dt><dd>{sleepAvg != null ? SLEEP[Math.round(sleepAvg)] : "—"}</dd></div>
+              <div><dt>Check-ins</dt><dd>{done.length} van {range}</dd></div>
+            </dl>
+            <MoodChart points={points} />
+          </section>
 
-      {insight && (
-        <section className="insight">
-          <span className="insight__icon"><Icon name="sparkles" size={20} /></span>
-          <div>
-            <p className="insight__title">{insight.title}</p>
-            <p className="insight__text">{insight.text}</p>
-            <p className="insight__fine">Dat wil niet zeggen dat het één het ander veroorzaakt. Wel iets om eens over te praten met je begeleider.</p>
-          </div>
-        </section>
-      )}
+          {insight && (
+            <section className="insight">
+              <span className="insight__icon"><Icon name="sparkles" size={20} /></span>
+              <div>
+                <p className="insight__title">{insight.title}</p>
+                <p className="insight__text">{insight.text}</p>
+                <p className="insight__fine">Dat wil niet zeggen dat het één het ander veroorzaakt. Wel iets om eens over te praten met je begeleider.</p>
+              </div>
+            </section>
+          )}
+        </div>
+        <div className="col">
+          <section className="block">
+            <div className="block__head"><h2 className="block__title">Wat kwam het vaakst terug?</h2></div>
+            <EmfiPatterns entries={done} />
+          </section>
 
-      <section className="block">
-        <div className="block__head"><h2 className="block__title">Wat kwam het vaakst terug?</h2></div>
-        <EmfiPatterns entries={done} />
-      </section>
+          <section className="block">
+            <div className="block__head"><h2 className="block__title">Per dag</h2></div>
+            <ul className="daylist">
+              {[...done].reverse().map((e) => (
+                <li key={dayKey(e.at)} className="daylist__row">
+                  <MoodFace value={e.mood} size={36} tone />
+                  <span className="daylist__text">
+                    <b>{isToday(e.at, now) ? "Vandaag" : capitalize(fmtDayShort(e.at))} · {MOODS[e.mood]}</b>
+                    <span>{EMFI.map((d) => e.emfi[d.key]).filter(Boolean).join(" · ") || "Geen EMFI ingevuld"}</span>
+                  </span>
+                  {e.sleep > 0 && <span className="daylist__sleep" title={`Slaap: ${SLEEP[e.sleep]}`}><MoonPhase value={e.sleep} size={22} /><span className="sr-only">Slaap: {SLEEP[e.sleep]}</span></span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </div>
 
-      <section className="block">
-        <div className="block__head"><h2 className="block__title">Per dag</h2></div>
-        <ul className="daylist">
-          {[...done].reverse().map((e) => (
-            <li key={dayKey(e.at)} className="daylist__row">
-              <MoodFace value={e.mood} size={36} tone />
-              <span className="daylist__text">
-                <b>{isToday(e.at, now) ? "Vandaag" : capitalize(fmtDayShort(e.at))} · {MOODS[e.mood]}</b>
-                <span>{EMFI.map((d) => e.emfi[d.key]).filter(Boolean).join(" · ") || "Geen EMFI ingevuld"}</span>
-              </span>
-              {e.sleep > 0 && <span className="daylist__sleep" title={`Slaap: ${SLEEP[e.sleep]}`}><MoonPhase value={e.sleep} size={22} /><span className="sr-only">Slaap: {SLEEP[e.sleep]}</span></span>}
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }
@@ -1434,36 +1446,43 @@ function CalmTab({ callAt, callAck, onCall, onCancelCall }) {
         <h1 className="app-title">Even rust</h1>
         <p className="muted">Kleine dingen die kunnen helpen. Neem je tijd.</p>
       </header>
-      <Breathing />
-      <section className="block">
-        <div className="block__head">
-          <h2 className="block__title">Wat helpt jou</h2>
+      <div className="cols">
+        <div className="col">
+          <Breathing />
         </div>
-        <p className="muted small block__lead">Uit je signaleringsplan, opgesteld samen met {STAFF_USER.firstName}.</p>
-        <ul className="helps">
-          {HELPS.map((h) => (
-            <li key={h.text}><span className="helps__icon"><Icon name={h.icon} size={18} /></span>{h.text}</li>
-          ))}
-        </ul>
-      </section>
-      <section className={cx("helpcard", callAt && "is-active")} aria-live="polite">
-        {callAt ? (
-          <>
-            <span className="helpcard__icon"><Icon name={callAck ? "checkCircle" : "bell"} size={22} /></span>
-            <h2 className="helpcard__title">{callAck ? `${STAFF_USER.firstName} komt naar je toe` : "Je vraag is doorgegeven"}</h2>
-            <p>{callAck ? `Je begeleider zag je vraag om ${fmtTime(callAck)}.` : `Om ${fmtTime(callAt)}. Iemand van het team komt zo snel mogelijk naar je toe.`}</p>
-            <button type="button" className="btn btn--secondary btn--sm" onClick={onCancelCall}>{callAck ? "Oké" : "Vraag intrekken"}</button>
-          </>
-        ) : (
-          <>
-            <span className="helpcard__icon"><Icon name="chat" size={22} /></span>
-            <h2 className="helpcard__title">Wil je nu met iemand praten?</h2>
-            <p>Je begeleider krijgt meteen een seintje en komt naar je toe.</p>
-            <button type="button" className="btn btn--primary btn--block btn--lg" onClick={onCall}><Icon name="bell" size={18} />Vraag een begeleider</button>
-          </>
-        )}
-        <p className="helpcard__fine"><Icon name="alert" size={15} />Voel je je niet veilig? Spreek meteen iemand aan of gebruik de oproepknop op je kamer.</p>
-      </section>
+        <div className="col">
+          <section className="block">
+            <div className="block__head">
+              <h2 className="block__title">Wat helpt jou</h2>
+            </div>
+            <p className="muted small block__lead">Uit je signaleringsplan, opgesteld samen met {STAFF_USER.firstName}.</p>
+            <ul className="helps">
+              {HELPS.map((h) => (
+                <li key={h.text}><span className="helps__icon"><Icon name={h.icon} size={18} /></span>{h.text}</li>
+              ))}
+            </ul>
+          </section>
+          <section className={cx("helpcard", callAt && "is-active")} aria-live="polite">
+            {callAt ? (
+              <>
+                <span className="helpcard__icon"><Icon name={callAck ? "checkCircle" : "bell"} size={22} /></span>
+                <h2 className="helpcard__title">{callAck ? `${STAFF_USER.firstName} komt naar je toe` : "Je vraag is doorgegeven"}</h2>
+                <p>{callAck ? `Je begeleider zag je vraag om ${fmtTime(callAck)}.` : `Om ${fmtTime(callAt)}. Iemand van het team komt zo snel mogelijk naar je toe.`}</p>
+                <button type="button" className="btn btn--secondary btn--sm" onClick={onCancelCall}>{callAck ? "Oké" : "Vraag intrekken"}</button>
+              </>
+            ) : (
+              <>
+                <span className="helpcard__icon"><Icon name="chat" size={22} /></span>
+                <h2 className="helpcard__title">Wil je nu met iemand praten?</h2>
+                <p>Je begeleider krijgt meteen een seintje en komt naar je toe.</p>
+                <button type="button" className="btn btn--primary btn--block btn--lg" onClick={onCall}><Icon name="bell" size={18} />Vraag een begeleider</button>
+              </>
+            )}
+            <p className="helpcard__fine"><Icon name="alert" size={15} />Voel je je niet veilig? Spreek meteen iemand aan of gebruik de oproepknop op je kamer.</p>
+          </section>
+        </div>
+      </div>
+
     </div>
   );
 }
@@ -2929,6 +2948,9 @@ body { margin: 0; background: var(--bg); }
 .device__screen { position: relative; height: 100%; overflow: hidden; background: var(--bg); }
 
 .stage.is-desktop { --device-frame: #0B0F0D; --device-ring: rgba(0, 0, 0, .08); max-width: 1440px; margin: 0 auto; height: 100vh; height: 100dvh; display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); align-items: center; gap: clamp(32px, 5vw, 96px); padding: 84px 56px 36px; }
+/* iPad liggend: het toestel krijgt de volle breedte, zodat de tekst groot genoeg blijft. */
+.stage.is-desktop.is-ipad { max-width: none; grid-template-columns: minmax(0, 1fr); padding: 76px 40px 24px; }
+.stage.is-desktop.is-ipad .stage__info { display: none; }
 .stage.is-desktop .stage__info { display: block; }
 .stage.is-desktop .stage__col { height: 100%; min-height: 0; display: grid; place-items: center; }
 .device-box { position: relative; flex: none; }
@@ -2952,8 +2974,8 @@ body { margin: 0; background: var(--bg); }
 .device--iphone .device__hw--vol-down { left: -3px; top: 244px; width: 4px; height: 58px; }
 .device--iphone .device__hw--power { right: -3px; top: 200px; width: 4px; height: 92px; }
 .device--ipad .device__hw--power { top: -3px; right: 70px; width: 60px; height: 4px; }
-.device--ipad .device__hw--vol-up { right: -3px; top: 100px; width: 4px; height: 54px; }
-.device--ipad .device__hw--vol-down { right: -3px; top: 166px; width: 4px; height: 54px; }
+.device--ipad .device__hw--vol-up { top: -3px; right: 154px; width: 54px; height: 4px; }
+.device--ipad .device__hw--vol-down { top: -3px; right: 220px; width: 54px; height: 4px; }
 .device--ipad .device__hw--camera { top: 7px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #1C2220; box-shadow: inset 0 0 0 2px #0A0D0C; }
 
 .simbar { position: fixed; top: 20px; right: 24px; z-index: 100; display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
@@ -2992,6 +3014,15 @@ body { margin: 0; background: var(--bg); }
 .scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .tab-page { display: flex; flex-direction: column; gap: 24px; max-width: 640px; margin: 0 auto; padding: 6px 16px 32px; }
 @container app (min-width: 600px) { .tab-page { padding: 16px 32px 48px; gap: 28px; } }
+.cols, .col { display: contents; }
+@container app (min-width: 960px) {
+  .tab-page { max-width: 1080px; padding: 20px 44px 48px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+  .col .patterns { grid-template-columns: 1fr; }
+  .flow .flow__step, .flow .flow__actions, .flow .flow__nudge { max-width: 860px; }
+  .flow .emfi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 
 .tabbar { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 10px calc(var(--sab) + 6px); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 94%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 .tabbar__btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 4px; border: 0; background: none; color: var(--ink-2); font-size: 12px; font-weight: 600; border-radius: 14px; }
