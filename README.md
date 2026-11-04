@@ -2,7 +2,7 @@
 
 Prototype van een dagelijkse check-in voor patiënten van een psychiatrische afdeling, met een werkplek voor de begeleiding. De check-in volgt vier gebieden: **E**moties, **M**entaal, **F**ysiek en **I**nteractie.
 
-> PC Zilverlinde, afdeling De Meander, alle patiënten en het dossiersysteem HErOS+ zijn **fictief**. Alles wat je invult, blijft in de browser van het toestel.
+> Alle namen van patiënten, medewerkers, het ziekenhuis (PC Zilverlinde) en de afdeling (De Meander) zijn **fictief of pseudoniemen**. HErOS+ is een bestaand patiëntendossier van Obasi. Het wordt hier enkel als voorbeeld gebruikt en de koppeling is gesimuleerd. Alles wat je invult, blijft in de browser van het toestel.
 
 ## Patiënt-app (telefoon en tablet)
 

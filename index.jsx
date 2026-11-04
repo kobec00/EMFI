@@ -3,7 +3,10 @@
  * ------------------------------------------------------------------
  * Prototype van een dagelijkse check-in voor patiënten van een
  * psychiatrische afdeling, met een werkplek voor de begeleiding.
- * Ziekenhuis, afdeling, patiënten en "HErOS+" zijn fictief.
+ * Alle namen van patiënten, medewerkers, het ziekenhuis en de afdeling
+ * zijn fictief of pseudoniemen. HErOS+ is een bestaand patiëntendossier
+ * van Obasi; het wordt hier enkel als voorbeeld gebruikt en de koppeling
+ * is gesimuleerd.
  *
  *  • Patiënt-app    — mobiel ontworpen: Vandaag, Verloop en Rust, met een
  *                     check-in in vijf korte stappen
@@ -26,6 +29,15 @@ const ORG = {
   ward: "De Meander",
   wardType: "Opname & behandeling volwassenen",
   epd: "HErOS+",
+  epdVendor: "Obasi",
+};
+
+/* Disclaimer, op één plek zodat de tekst overal gelijk blijft. */
+const DISCLAIMER = {
+  names: "Alle namen van patiënten, medewerkers, het ziekenhuis en de afdeling zijn fictief of pseudoniemen.",
+  epd: `${ORG.epd} is een bestaand patiëntendossier van ${ORG.epdVendor}. Het wordt hier enkel als voorbeeld gebruikt; de koppeling in deze demo is gesimuleerd.`,
+  short: `Demo met fictieve namen · ${ORG.epd} (${ORG.epdVendor}) enkel als voorbeeld`,
+  compact: `Prototype. Namen zijn fictief of pseudoniemen. ${ORG.epd} is een product van ${ORG.epdVendor}, hier enkel als voorbeeld; de koppeling is gesimuleerd.`,
 };
 
 const SELF = { id: "robin", firstName: "Robin", name: "Robin L.", room: "Kamer 9" };
@@ -321,7 +333,7 @@ function handoverText(sections, now) {
       : "- Niemand";
     return `${s.title.toUpperCase()}\n${items}`;
   });
-  return [head, ...body].join("\n\n");
+  return [head, ...body, `—\n${DISCLAIMER.names} ${DISCLAIMER.epd}`].join("\n\n");
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -871,7 +883,7 @@ function PatientStage(props) {
           </button>
           <button type="button" className="btn btn--secondary" onClick={toStaff}><Icon name="clipboard" size={18} />Bekijk begeleiding</button>
         </div>
-        <p className="stage__fine">Fictief prototype. {ORG.hospital}, de patiënten en {ORG.epd} bestaan niet.</p>
+        <p className="stage__fine">Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</p>
       </section>
 
       <div className="device">
@@ -1022,7 +1034,7 @@ function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset }) {
             </button>
           </li>
         </ul>
-        <p className="menu__fine">{ORG.hospital} en {ORG.epd} zijn fictief. Dit is een prototype.</p>
+        <p className="menu__fine">Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</p>
       </div>
     </Sheet>
   );
@@ -1124,6 +1136,8 @@ function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck
         </span>
         <Icon name="chevronRight" size={18} />
       </button>
+
+      <p className="disclaimer"><Icon name="info" size={14} />{DISCLAIMER.short}</p>
     </div>
   );
 }
@@ -2084,6 +2098,7 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
           <span className="sync__dot" aria-hidden="true" />
           <span>Gesynchroniseerd met <b>{ORG.epd}</b><small>{capitalize(relTime(lastSync, now))}</small></span>
         </p>
+        <p className="sb__fine">{DISCLAIMER.compact}</p>
         <div className="sb__user">
           <Avatar name={STAFF_USER.name} size={36} />
           <span><b>{STAFF_USER.name}</b><small>{STAFF_USER.role} · {shiftName(now).toLowerCase()}</small></span>
@@ -2138,6 +2153,7 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
                   </aside>
                 )}
               </div>
+              <StaffDisclaimer narrow />
             </div>
           </>
         ) : (
@@ -2469,6 +2485,15 @@ function NotesBox({ p, onAdd }) {
   );
 }
 
+function StaffDisclaimer({ narrow }) {
+  return (
+    <p className={cx("disclaimer disclaimer--staff", narrow && "disclaimer--narrow")}>
+      <Icon name="info" size={14} />
+      <span>Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</span>
+    </p>
+  );
+}
+
 function Handover({ rows, now }) {
   const sections = buildHandover(rows);
   const [copied, setCopied] = useState(false);
@@ -2523,6 +2548,7 @@ function Handover({ rows, now }) {
             </section>
           ))}
         </div>
+        <StaffDisclaimer />
       </div>
     </>
   );
@@ -2797,7 +2823,7 @@ body { margin: 0; background: var(--bg); }
 .stage__feats li > span:last-child { grid-column: 2; font-size: 14.5px; color: var(--ink-2); line-height: 1.45; }
 .stage__ficon { grid-row: span 2; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--brand-soft); color: var(--brand-soft-ink); }
 .stage__ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 34px; }
-.stage__fine { margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+.stage__fine { margin-top: 18px; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); max-width: 52ch; }
 
 /* ════ Patiënt-app ═══════════════════════════════════════ */
 .app { position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-ui); container: app / inline-size; isolation: isolate; }
@@ -2979,7 +3005,11 @@ body { margin: 0; background: var(--bg); }
 .menu__icon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--surface-3); color: var(--ink-2); }
 .menu__text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .menu__text small { font-size: 13px; font-weight: 500; color: var(--ink-2); }
-.menu__fine { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); text-align: center; }
+.menu__fine { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); text-align: center; line-height: 1.45; }
+.disclaimer { display: flex; align-items: flex-start; justify-content: center; gap: 6px; font-size: 12px; line-height: 1.45; color: var(--ink-3); text-align: center; }
+.disclaimer .ic { margin-top: 2px; }
+.disclaimer--staff { justify-content: flex-start; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); text-align: left; max-width: 90ch; }
+.disclaimer--narrow { display: none; }
 
 /* ── Check-in flow ─────────────────────────────────────── */
 .flow { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; background: var(--bg); animation: flow-in .34s var(--ease); }
@@ -3221,6 +3251,7 @@ body { margin: 0; background: var(--bg); }
 .sb__sync { display: flex; align-items: center; gap: 10px; padding: 12px; font-size: 13px; color: var(--ink-2); line-height: 1.3; }
 .sb__sync > span:last-child { display: flex; flex-direction: column; }
 .sb__sync b { color: var(--ink); }
+.sb__fine { padding: 0 12px 12px; font-size: 11.5px; line-height: 1.45; color: var(--ink-3); }
 .sb__user { display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--line); }
 .sb__user > span { display: flex; flex-direction: column; line-height: 1.25; font-size: 14px; }
 
@@ -3326,7 +3357,7 @@ body { margin: 0; background: var(--bg); }
 .empty .ic { color: var(--ink-3); margin-bottom: 6px; }
 .empty strong { color: var(--ink); }
 
-.panel { position: sticky; top: 96px; height: calc(100dvh - 120px); min-height: 520px; display: flex; overflow: hidden; border-radius: 24px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-2); }
+.panel { position: sticky; top: 96px; height: calc(100dvh - 152px); min-height: 520px; display: flex; overflow: hidden; border-radius: 24px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-2); }
 .panel__empty { flex: 1; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--ink-2); text-align: center; padding: 24px; }
 
 .drawer {
@@ -3406,7 +3437,8 @@ body { margin: 0; background: var(--bg); }
   .sb__brand { padding: 0; margin-right: auto; }
   .sb__nav { flex-direction: row; order: 3; width: 100%; }
   .sb__link { flex: 1; justify-content: center; }
-  .sb__spacer, .sb__sync, .sb__user { display: none; }
+  .sb__spacer, .sb__sync, .sb__fine, .sb__user { display: none; }
+  .disclaimer--narrow { display: flex; }
   .sb__demo { min-height: 44px; padding: 6px 12px; }
   .sb__demo small { display: none; }
   .sm__top { position: static; padding: 20px 16px 6px; border-bottom: 0; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
