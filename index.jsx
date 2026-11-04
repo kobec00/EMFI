@@ -36,8 +36,11 @@ const ORG = {
 const DISCLAIMER = {
   names: "Alle namen van patiënten, medewerkers, het ziekenhuis en de afdeling zijn fictief of pseudoniemen.",
   epd: `${ORG.epd} is een bestaand patiëntendossier van ${ORG.epdVendor}. Het wordt hier enkel als voorbeeld gebruikt; de koppeling in deze demo is gesimuleerd.`,
-  short: `Demo met fictieve namen · ${ORG.epd} (${ORG.epdVendor}) enkel als voorbeeld`,
-  compact: `Prototype. Namen zijn fictief of pseudoniemen. ${ORG.epd} is een product van ${ORG.epdVendor}, hier enkel als voorbeeld; de koppeling is gesimuleerd.`,
+  items: [
+    { icon: "users", title: "Fictieve namen", text: `Alle namen van patiënten, medewerkers, het ziekenhuis (${ORG.hospital}) en de afdeling (${ORG.ward}) zijn fictief of pseudoniemen. Gelijkenissen met bestaande personen of voorzieningen berusten op toeval.` },
+    { icon: "shield", title: `${ORG.epd} als voorbeeld`, text: `${ORG.epd} is een bestaand elektronisch patiëntendossier van ${ORG.epdVendor}. Het wordt hier enkel als voorbeeld gebruikt. Er is geen echte koppeling: de synchronisatie in deze demo is gesimuleerd.` },
+    { icon: "phone", title: "Gegevens blijven hier", text: "Wat je invult, wordt alleen in de browser van dit toestel bewaard en nergens naartoe gestuurd." },
+  ],
 };
 
 const SELF = { id: "robin", firstName: "Robin", name: "Robin L.", room: "Kamer 9" };
@@ -816,6 +819,56 @@ function SyncStatus({ at, short }) {
   );
 }
 
+/* Disclaimer: een kleine knop die een venster opent. */
+function DisclaimerButton({ onClick, className }) {
+  return (
+    <button type="button" className={cx("disc-btn", className)} onClick={onClick} aria-haspopup="dialog">
+      <Icon name="info" size={13} />Disclaimer
+    </button>
+  );
+}
+
+function DisclaimerBody({ titleId }) {
+  return (
+    <div className="disc">
+      <p className="disc__kicker">Prototype</p>
+      <h2 className="disc__title" id={titleId}>Disclaimer</h2>
+      <ul className="disc__list">
+        {DISCLAIMER.items.map((it) => (
+          <li key={it.title}>
+            <span className="disc__icon"><Icon name={it.icon} size={18} /></span>
+            <span><b>{it.title}</b>{it.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* Gecentreerd venster (presentatiepagina en werkplek). */
+function DisclaimerModal({ open, onClose }) {
+  const ref = useRef(null);
+  const tid = useId();
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal?.();
+    if (!open && d.open) d.close();
+  }, [open]);
+  return (
+    <dialog ref={ref} className="modal" aria-labelledby={tid} onClose={onClose}
+      onClick={(e) => { if (e.target === ref.current) onClose(); }}>
+      {open && (
+        <div className="modal__inner">
+          <button type="button" className="iconbtn iconbtn--plain modal__close" onClick={onClose} aria-label="Sluiten"><Icon name="x" /></button>
+          <DisclaimerBody titleId={tid} />
+          <button type="button" className="btn btn--secondary btn--block" onClick={onClose}>Sluiten</button>
+        </div>
+      )}
+    </dialog>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════
    App
    ════════════════════════════════════════════════════════════════ */
@@ -865,6 +918,7 @@ export default function EMFIApp() {
 
 function PatientStage(props) {
   const { simple, setSimple, toStaff, now } = props;
+  const [disc, setDisc] = useState(false);
   return (
     <div className="stage">
       <section className="stage__info" aria-label="Over deze app">
@@ -883,7 +937,8 @@ function PatientStage(props) {
           </button>
           <button type="button" className="btn btn--secondary" onClick={toStaff}><Icon name="clipboard" size={18} />Bekijk begeleiding</button>
         </div>
-        <p className="stage__fine">Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</p>
+        <DisclaimerButton className="stage__disc" onClick={() => setDisc(true)} />
+        <DisclaimerModal open={disc} onClose={() => setDisc(false)} />
       </section>
 
       <div className="device">
@@ -913,8 +968,10 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
   const [tab, setTab] = useState("today");
   const [flow, setFlow] = useState(null);
   const [menu, setMenu] = useState(false);
+  const [disc, setDisc] = useState(false);
   const mainRef = useRef(null);
-  useInert(mainRef, (!!flow && !simple) || menu);
+  const discTitle = useId();
+  useInert(mainRef, (!!flow && !simple) || menu || disc);
 
   const draft = store.draft;
   const update = useCallback((p) => patch((s) => ({ draft: { ...s.draft, ...p } })), [patch]);
@@ -958,7 +1015,8 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
                 <TodayTab now={now} draft={draft} todayEntry={todayEntry} selfLog={selfLog} remindedAt={remindedAt}
                   callAt={callAt} callAck={callAck} onStart={() => openFlow(0)}
                   onQuickMood={(v) => { update({ mood: v }); openFlow(1); }}
-                  onSimple={() => setSimple(true)} onHistory={() => setTab("history")} onCalm={() => setTab("calm")} />
+                  onSimple={() => setSimple(true)} onHistory={() => setTab("history")} onCalm={() => setTab("calm")}
+                  onDisclaimer={() => setDisc(true)} />
               )}
               {tab === "history" && <HistoryTab log={selfLog} now={now} />}
               {tab === "calm" && <CalmTab callAt={callAt} callAck={callAck} onCall={call} onCancelCall={cancelCall} />}
@@ -988,12 +1046,18 @@ function PatientApp({ simple, setSimple, store, patch, selfLog, todayEntry, now,
       )}
 
       <MenuSheet open={menu} onClose={() => setMenu(false)} simple={simple} setSimple={setSimple}
-        toStaff={() => { setMenu(false); toStaff(); }} onReset={() => { onReset(); setMenu(false); setTab("today"); }} />
+        toStaff={() => { setMenu(false); toStaff(); }} onReset={() => { onReset(); setMenu(false); setTab("today"); }}
+        onDisclaimer={() => { setMenu(false); setDisc(true); }} />
+
+      <Sheet open={disc} onClose={() => setDisc(false)} labelId={discTitle}>
+        <DisclaimerBody titleId={discTitle} />
+        <button type="button" className="btn btn--secondary btn--block disc__close" onClick={() => setDisc(false)} data-autofocus="">Sluiten</button>
+      </Sheet>
     </div>
   );
 }
 
-function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset }) {
+function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset, onDisclaimer }) {
   const tid = useId();
   const [confirm, setConfirm] = useState(false);
   useEffect(() => {
@@ -1034,7 +1098,7 @@ function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset }) {
             </button>
           </li>
         </ul>
-        <p className="menu__fine">Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</p>
+        <p className="menu__fine"><DisclaimerButton onClick={onDisclaimer} /></p>
       </div>
     </Sheet>
   );
@@ -1042,7 +1106,7 @@ function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset }) {
 
 /* ── Vandaag ───────────────────────────────────────────────────── */
 
-function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck, onStart, onQuickMood, onSimple, onHistory, onCalm }) {
+function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck, onStart, onQuickMood, onSimple, onHistory, onCalm, onDisclaimer }) {
   const { greeting, part } = daypart(now);
   const started = draft.mood !== null || Object.keys(draft.emfi).length > 0;
   return (
@@ -1137,7 +1201,7 @@ function TodayTab({ now, draft, todayEntry, selfLog, remindedAt, callAt, callAck
         <Icon name="chevronRight" size={18} />
       </button>
 
-      <p className="disclaimer"><Icon name="info" size={14} />{DISCLAIMER.short}</p>
+      <p className="disclaimer"><DisclaimerButton onClick={onDisclaimer} /></p>
     </div>
   );
 }
@@ -2017,6 +2081,7 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(null);
+  const [disc, setDisc] = useState(false);
   const wide = useMediaQuery("(min-width: 1280px)");
   const searchRef = useRef(null);
   const listRef = useRef(null);
@@ -2098,7 +2163,7 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
           <span className="sync__dot" aria-hidden="true" />
           <span>Gesynchroniseerd met <b>{ORG.epd}</b><small>{capitalize(relTime(lastSync, now))}</small></span>
         </p>
-        <p className="sb__fine">{DISCLAIMER.compact}</p>
+        <DisclaimerButton className="sb__disc" onClick={() => setDisc(true)} />
         <div className="sb__user">
           <Avatar name={STAFF_USER.name} size={36} />
           <span><b>{STAFF_USER.name}</b><small>{STAFF_USER.role} · {shiftName(now).toLowerCase()}</small></span>
@@ -2153,13 +2218,15 @@ function StaffApp({ ward, store, patch, now, lastSync, toPatient }) {
                   </aside>
                 )}
               </div>
-              <StaffDisclaimer narrow />
+              <p className="disclaimer disclaimer--narrow"><DisclaimerButton onClick={() => setDisc(true)} /></p>
             </div>
           </>
         ) : (
-          <Handover rows={rows} now={now} />
+          <Handover rows={rows} now={now} onDisclaimer={() => setDisc(true)} />
         )}
       </div>
+
+      <DisclaimerModal open={disc} onClose={() => setDisc(false)} />
 
       {!wide && (
         <Drawer open={!!selected} onClose={() => setSelectedId(null)} labelledBy="detail-title">
@@ -2485,16 +2552,7 @@ function NotesBox({ p, onAdd }) {
   );
 }
 
-function StaffDisclaimer({ narrow }) {
-  return (
-    <p className={cx("disclaimer disclaimer--staff", narrow && "disclaimer--narrow")}>
-      <Icon name="info" size={14} />
-      <span>Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</span>
-    </p>
-  );
-}
-
-function Handover({ rows, now }) {
+function Handover({ rows, now, onDisclaimer }) {
   const sections = buildHandover(rows);
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -2548,7 +2606,8 @@ function Handover({ rows, now }) {
             </section>
           ))}
         </div>
-        <StaffDisclaimer />
+        <p className="disclaimer disclaimer--staff"><DisclaimerButton onClick={onDisclaimer} /></p>
+        <p className="print-only ho__print-note">Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</p>
       </div>
     </>
   );
@@ -2823,7 +2882,7 @@ body { margin: 0; background: var(--bg); }
 .stage__feats li > span:last-child { grid-column: 2; font-size: 14.5px; color: var(--ink-2); line-height: 1.45; }
 .stage__ficon { grid-row: span 2; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--brand-soft); color: var(--brand-soft-ink); }
 .stage__ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 34px; }
-.stage__fine { margin-top: 18px; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); max-width: 52ch; }
+.stage__disc { margin-top: 18px; }
 
 /* ════ Patiënt-app ═══════════════════════════════════════ */
 .app { position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-ui); container: app / inline-size; isolation: isolate; }
@@ -3005,11 +3064,26 @@ body { margin: 0; background: var(--bg); }
 .menu__icon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--surface-3); color: var(--ink-2); }
 .menu__text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .menu__text small { font-size: 13px; font-weight: 500; color: var(--ink-2); }
-.menu__fine { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); text-align: center; line-height: 1.45; }
-.disclaimer { display: flex; align-items: flex-start; justify-content: center; gap: 6px; font-size: 12px; line-height: 1.45; color: var(--ink-3); text-align: center; }
-.disclaimer .ic { margin-top: 2px; }
-.disclaimer--staff { justify-content: flex-start; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); text-align: left; max-width: 90ch; }
+.menu__fine { display: flex; justify-content: center; margin-top: 10px; }
+.disclaimer { display: flex; justify-content: center; }
+.disclaimer--staff { justify-content: flex-start; margin-top: 24px; }
 .disclaimer--narrow { display: none; }
+.disc-btn { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
+.disc-btn:hover { color: var(--ink-2); background: var(--surface-3); }
+.disc__kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.disc__title { font-family: var(--font-display); font-weight: 400; font-size: 32px; line-height: 1.05; margin-top: 2px; }
+.disc__list { display: flex; flex-direction: column; gap: 14px; margin: 18px 0 20px; }
+.disc__list li { display: flex; align-items: flex-start; gap: 12px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.disc__list b { display: block; color: var(--ink); font-size: 15px; }
+.disc__icon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--surface-3); color: var(--ink-2); }
+.disc__close { margin-top: 2px; }
+.modal { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 0; border: 0; border-radius: 26px; background: var(--surface); color: var(--ink); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .45); overflow: auto; }
+.modal[open] { animation: modal-in .24s var(--ease); }
+.modal::backdrop { background: rgba(14, 20, 18, .4); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+@keyframes modal-in { from { transform: translateY(12px) scale(.98); opacity: 0; } }
+.modal__inner { position: relative; padding: 24px; font-family: var(--font-ui); }
+.modal__close { position: absolute; top: 12px; right: 12px; }
+.print-only { display: none; }
 
 /* ── Check-in flow ─────────────────────────────────────── */
 .flow { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; background: var(--bg); animation: flow-in .34s var(--ease); }
@@ -3251,7 +3325,7 @@ body { margin: 0; background: var(--bg); }
 .sb__sync { display: flex; align-items: center; gap: 10px; padding: 12px; font-size: 13px; color: var(--ink-2); line-height: 1.3; }
 .sb__sync > span:last-child { display: flex; flex-direction: column; }
 .sb__sync b { color: var(--ink); }
-.sb__fine { padding: 0 12px 12px; font-size: 11.5px; line-height: 1.45; color: var(--ink-3); }
+.sb__disc { align-self: flex-start; margin: -4px 4px 8px; }
 .sb__user { display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--line); }
 .sb__user > span { display: flex; flex-direction: column; line-height: 1.25; font-size: 14px; }
 
@@ -3437,7 +3511,7 @@ body { margin: 0; background: var(--bg); }
   .sb__brand { padding: 0; margin-right: auto; }
   .sb__nav { flex-direction: row; order: 3; width: 100%; }
   .sb__link { flex: 1; justify-content: center; }
-  .sb__spacer, .sb__sync, .sb__fine, .sb__user { display: none; }
+  .sb__spacer, .sb__sync, .sb__disc, .sb__user { display: none; }
   .disclaimer--narrow { display: flex; }
   .sb__demo { min-height: 44px; padding: 6px 12px; }
   .sb__demo small { display: none; }
@@ -3464,7 +3538,8 @@ body { margin: 0; background: var(--bg); }
 }
 
 @media print {
-  .zl::before, .sb, .ho__actions, .sm__top .search { display: none !important; }
+  .zl::before, .sb, .ho__actions, .sm__top .search, .disc-btn { display: none !important; }
+  .print-only { display: block; margin-top: 20px; font-size: 11px; color: #555; }
   .staff { display: block; }
   .sm__top { position: static; background: none; border: 0; padding: 0 0 12px; }
   .sm__content { padding: 0; }
