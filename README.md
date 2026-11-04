@@ -8,7 +8,7 @@ Prototype van een dagelijkse check-in voor patiënten van een psychiatrische afd
 
 Ontworpen als echte app: vaste bovenbalk, tabbalk onderaan, panelen die van onder openschuiven, en de terugknop van de telefoon werkt zoals je verwacht.
 
-Op een computer draait de app in een gesimuleerd toestel dat meeschaalt met je venster. Rechtsboven wissel je tussen **iPhone** (met dynamic island) en **iPad** (liggend, over de volle breedte, met de app in twee kolommen). Wat je aan het invullen bent, blijft staan als je wisselt, en de browser onthoudt je keuze. Daarnaast staat de knop **Disclaimer**. Op een telefoon of tablet zelf is de app gewoon schermvullend.
+Op een computer draait de app in een gesimuleerd toestel dat meeschaalt met je venster. Rechtsboven wissel je tussen **iPhone** (met dynamic island) en **iPad** (liggend, over de volle breedte, met de app in twee kolommen). Wat je aan het invullen bent, blijft staan als je wisselt, en de browser onthoudt je keuze. Daarnaast staan, los van die schakelaar, de knoppen **Disclaimer** en **Bekijk begeleiding**. Op een telefoon of tablet zelf is de app gewoon schermvullend.
 
 - **Vandaag**: begroeting, check-in starten met één tik op een gezichtje, de dagplanning van de afdeling en je week in één oogopslag.
 - **Check-in in vijf stappen**: stemming, EMFI (minstens 2 van de 4, met "Weet ik niet"), slaap en activiteiten, een gespreksvraag en notitie (delen of privé), en tot slot nakijken. Stop je halverwege, dan ga je later verder waar je was.

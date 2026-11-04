@@ -978,6 +978,10 @@ function PatientStage(props) {
     <div className={cx("stage", desktop && "is-desktop", desktop && `is-${deviceId}`)}>
       {desktop && (
         <div className="simbar" role="toolbar" aria-label="Simulatie">
+          <div className="simbar__actions">
+            <DisclaimerButton className="simbtn" onClick={() => setDisc(true)} />
+            <button type="button" className="simbtn" onClick={toStaff}><Icon name="clipboard" size={15} />Bekijk begeleiding</button>
+          </div>
           <div className="simbar__seg" role="group" aria-label="Toestel">
             {Object.entries(DEVICES).map(([id, d]) => (
               <button key={id} type="button" aria-pressed={deviceId === id} onClick={() => setDeviceId(id)}>
@@ -985,7 +989,6 @@ function PatientStage(props) {
               </button>
             ))}
           </div>
-          <DisclaimerButton className="simbar__disc" onClick={() => setDisc(true)} />
         </div>
       )}
 
@@ -1004,7 +1007,6 @@ function PatientStage(props) {
             <button type="button" role="switch" aria-checked={simple} className="mswitch" onClick={() => setSimple(!simple)}>
               <Icon name="simple" size={18} />Eenvoudige modus<span className="track" aria-hidden="true" />
             </button>
-            <button type="button" className="btn btn--secondary" onClick={toStaff}><Icon name="clipboard" size={18} />Bekijk begeleiding</button>
           </div>
         </section>
       )}
@@ -2949,7 +2951,7 @@ body { margin: 0; background: var(--bg); }
 
 .stage.is-desktop { --device-frame: #0B0F0D; --device-ring: rgba(0, 0, 0, .08); max-width: 1440px; margin: 0 auto; height: 100vh; height: 100dvh; display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); align-items: center; gap: clamp(32px, 5vw, 96px); padding: 84px 56px 36px; }
 /* iPad liggend: het toestel krijgt de volle breedte, zodat de tekst groot genoeg blijft. */
-.stage.is-desktop.is-ipad { max-width: none; grid-template-columns: minmax(0, 1fr); padding: 76px 40px 24px; }
+.stage.is-desktop.is-ipad { max-width: none; grid-template-columns: minmax(0, 1fr); padding: 92px 40px 24px; }
 .stage.is-desktop.is-ipad .stage__info { display: none; }
 .stage.is-desktop .stage__info { display: block; }
 .stage.is-desktop .stage__col { height: 100%; min-height: 0; display: grid; place-items: center; }
@@ -2978,12 +2980,14 @@ body { margin: 0; background: var(--bg); }
 .device--ipad .device__hw--vol-down { top: -3px; right: 220px; width: 54px; height: 4px; }
 .device--ipad .device__hw--camera { top: 7px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #1C2220; box-shadow: inset 0 0 0 2px #0A0D0C; }
 
-.simbar { position: fixed; top: 20px; right: 24px; z-index: 100; display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.simbar__seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-3); }
+.simbar { position: fixed; top: 20px; right: 24px; z-index: 100; display: flex; align-items: center; gap: 28px; }
+.simbar__actions { display: flex; align-items: center; gap: 8px; }
+.simbar .simbtn { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 0 16px 0 13px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--ink-2); font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: color .15s, border-color .15s; }
+.simbar .simbtn:hover { color: var(--ink); border-color: var(--line-strong); background: color-mix(in srgb, var(--surface) 85%, transparent); }
+.simbar__seg { display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface-3) 85%, transparent); box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .simbar__seg button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px 0 11px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 13.5px; font-weight: 600; transition: background .2s var(--ease), color .2s, box-shadow .2s; }
 .simbar__seg button:hover { color: var(--ink); }
 .simbar__seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
-.simbar__disc { margin-right: 4px; border-radius: 999px; }
 @media (prefers-color-scheme: dark) {
   .stage.is-desktop { --device-frame: #232926; --device-ring: rgba(255, 255, 255, .12); }
 }
