@@ -40,10 +40,10 @@ Op een tablet of telefoon opent het detailpaneel als schuifpaneel.
 
 ## Toegankelijkheid
 
-- Kleurcontrast haalt WCAG AA in de lichte en de donkere modus. De eenvoudige modus heeft nog meer contrast.
+- Kleurcontrast haalt WCAG AA. De eenvoudige modus heeft nog meer contrast. De app blijft altijd licht, ook als het toestel op donkere modus staat.
 - Een kleur staat nooit alleen: er hoort altijd een icoon en tekst bij. Het EMFI-palet is getest op kleurenblindheid.
 - Alles werkt met het toetsenbord, met een duidelijke focusrand. Grafieken hebben ook een tabelweergave.
-- De app volgt de instellingen van het toestel voor minder beweging en donkere modus. Inzoomen blijft mogelijk.
+- De app volgt de instelling van het toestel voor minder beweging. Inzoomen blijft mogelijk.
 - Voorlezen gebruikt de spraak die op het toestel zelf zit (`nl-BE`).
 
 ## Installeren als app

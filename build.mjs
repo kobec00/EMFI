@@ -49,8 +49,8 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EMFI check-in · PC Zilverlinde</title>
 <meta name="description" content="Dagelijkse EMFI check-in voor patiënten en begeleiding van afdeling De Meander (PC Zilverlinde, fictief).">
-<meta name="theme-color" content="#F3F2EC" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0F1412" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="only light">
+<meta name="theme-color" content="#F3F2EC">
 <link rel="icon" href="${FAVICON}">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -60,7 +60,7 @@ const html = `<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="${FONTS}">
-<style>body{margin:0;background:#F3F2EC}@media (prefers-color-scheme:dark){body{background:#0F1412}}</style>
+<style>body{margin:0;background:#F3F2EC}</style>
 <!-- Gegenereerd uit index.jsx met "npm run build". Pas index.jsx aan, niet dit bestand. -->
 </head>
 <body>
