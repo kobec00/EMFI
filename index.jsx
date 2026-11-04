@@ -608,6 +608,7 @@ const ICONS = {
   grid: <><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>,
   swap: <><path d="m16 3 4 4-4 4" /><path d="M20 7H4" /><path d="m8 21-4-4 4-4" /><path d="M4 17h16" /></>,
   phone: <><rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" /></>,
+  tablet: <><rect x="3" y="2" width="18" height="20" rx="2" /><path d="M12 18h.01" /></>,
   send: <><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></>,
   sparkles: <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />,
 };
@@ -916,46 +917,114 @@ export default function EMFIApp() {
    Patiënt — presentatie (desktop) en toestel
    ════════════════════════════════════════════════════════════════ */
 
+/* Op een computer draait de patiënt-app in een gesimuleerd toestel dat
+   meeschaalt met het venster. Op telefoon en tablet is de app gewoon
+   schermvullend. */
+const DESKTOP_QUERY = "(min-width: 1024px) and (min-height: 560px) and (hover: hover) and (pointer: fine)";
+const DEVICES = {
+  iphone: { label: "iPhone", icon: "phone", w: 393, h: 852, bezel: 12, sat: 54, sab: 20 },
+  ipad: { label: "iPad", icon: "tablet", w: 820, h: 1180, bezel: 22, sat: 26, sab: 20 },
+};
+
+function useFitScale(ref, device, enabled) {
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = ref.current;
+    if (!enabled || !el || typeof ResizeObserver === "undefined") return undefined;
+    const ow = device.w + device.bezel * 2;
+    const oh = device.h + device.bezel * 2;
+    const fit = () => {
+      const r = el.getBoundingClientRect();
+      setScale(Math.max(0.3, Math.min(1, r.width / ow, r.height / oh)));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref, device, enabled]);
+  return scale;
+}
+
+function StatusBar({ device, now }) {
+  return (
+    <div className="device__status" aria-hidden="true">
+      <span>{fmtTime(now)}{device === "ipad" && <span className="device__date">{capitalize(fmtDayShort(now))}</span>}</span>
+      <span className="device__icons">
+        {device === "iphone" && <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg>}
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5 5.6 8.9a3.4 3.4 0 0 1 4.8 0Zm-4.2-4.4-1.5-1.6a8.1 8.1 0 0 1 11.4 0l-1.5 1.6a6 6 0 0 0-8.4 0ZM.4 3.6-.9 2a12 12 0 0 1 17.8 0l-1.3 1.6a10 10 0 0 0-15.2 0Z" /></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="22" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4" /><rect x="2" y="2" width="17" height="9" rx="2" /><path d="M24.5 4.5v4a2 2 0 0 0 0-4Z" opacity=".45" /></svg>
+      </span>
+    </div>
+  );
+}
+
+function DeviceHardware({ device }) {
+  const parts = device === "iphone" ? ["action", "vol-up", "vol-down", "power"] : ["power", "vol-up", "vol-down", "camera"];
+  return parts.map((part) => <span key={part} className={`device__hw device__hw--${part}`} aria-hidden="true" />);
+}
+
 function PatientStage(props) {
   const { simple, setSimple, toStaff, now } = props;
   const [disc, setDisc] = useState(false);
-  return (
-    <div className="stage">
-      <section className="stage__info" aria-label="Over deze app">
-        <p className="stage__brand"><Logo size={40} />Zilverlinde</p>
-        <p className="eyebrow">Patiënt-app · {ORG.ward}</p>
-        <h1 className="stage__title">Elke dag even <em>inchecken.</em></h1>
-        <p className="stage__lede">Patiënten vullen op hun telefoon of tablet in hoe het met hen gaat. Het team ziet het meteen in het dossier.</p>
-        <ul className="stage__feats">
-          <li><span className="stage__ficon"><Icon name="clock" size={18} /></span><b>Klaar in een minuut</b><span>Vijf korte stappen met grote knoppen. Wie stopt, gaat later gewoon verder.</span></li>
-          <li><span className="stage__ficon"><Icon name="simple" size={18} /></span><b>Eenvoudige modus</b><span>Voor mensen met ASS of een verstandelijke beperking: één vraag per scherm, pictogrammen en voorlezen.</span></li>
-          <li><span className="stage__ficon"><Icon name="leaf" size={18} /></span><b>Meer dan een formulier</b><span>Dagplanning, eigen verloop, een ademoefening en snel een begeleider roepen.</span></li>
-        </ul>
-        <div className="stage__ctrl">
-          <button type="button" role="switch" aria-checked={simple} className="mswitch" onClick={() => setSimple(!simple)}>
-            <Icon name="simple" size={18} />Eenvoudige modus<span className="track" aria-hidden="true" />
-          </button>
-          <button type="button" className="btn btn--secondary" onClick={toStaff}><Icon name="clipboard" size={18} />Bekijk begeleiding</button>
-        </div>
-        <DisclaimerButton className="stage__disc" onClick={() => setDisc(true)} />
-        <DisclaimerModal open={disc} onClose={() => setDisc(false)} />
-      </section>
+  const desktop = useMediaQuery(DESKTOP_QUERY);
+  const [deviceId, setDeviceId] = usePersistentState("zilverlinde.toestel", "iphone");
+  const device = DEVICES[deviceId] || DEVICES.iphone;
+  const colRef = useRef(null);
+  const scale = useFitScale(colRef, device, desktop);
+  const ow = device.w + device.bezel * 2;
+  const oh = device.h + device.bezel * 2;
 
-      <div className="device">
-        <div className="device__screen">
-          <div className="device__status" aria-hidden="true">
-            <span>{fmtTime(now)}</span>
-            <span className="device__icons">
-              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg>
-              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5 5.6 8.9a3.4 3.4 0 0 1 4.8 0Zm-4.2-4.4-1.5-1.6a8.1 8.1 0 0 1 11.4 0l-1.5 1.6a6 6 0 0 0-8.4 0ZM.4 3.6-.9 2a12 12 0 0 1 17.8 0l-1.3 1.6a10 10 0 0 0-15.2 0Z" /></svg>
-              <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="22" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4" /><rect x="2" y="2" width="17" height="9" rx="2" /><path d="M24.5 4.5v4a2 2 0 0 0 0-4Z" opacity=".45" /></svg>
-            </span>
+  return (
+    <div className={cx("stage", desktop && "is-desktop")}>
+      {desktop && (
+        <div className="simbar" role="toolbar" aria-label="Simulatie">
+          <div className="simbar__seg" role="group" aria-label="Toestel">
+            {Object.entries(DEVICES).map(([id, d]) => (
+              <button key={id} type="button" aria-pressed={deviceId === id} onClick={() => setDeviceId(id)}>
+                <Icon name={d.icon} size={16} />{d.label}
+              </button>
+            ))}
           </div>
-          <span className="device__island" aria-hidden="true" />
-          <PatientApp {...props} />
-          <span className="device__home" aria-hidden="true" />
+          <DisclaimerButton className="simbar__disc" onClick={() => setDisc(true)} />
+        </div>
+      )}
+
+      {desktop && (
+        <section className="stage__info" aria-label="Over deze app">
+          <p className="stage__brand"><Logo size={40} />Zilverlinde</p>
+          <p className="eyebrow">Patiënt-app · {ORG.ward}</p>
+          <h1 className="stage__title">Elke dag even <em>inchecken.</em></h1>
+          <p className="stage__lede">Patiënten vullen op hun telefoon of tablet in hoe het met hen gaat. Het team ziet het meteen in het dossier.</p>
+          <ul className="stage__feats">
+            <li><span className="stage__ficon"><Icon name="clock" size={18} /></span><b>Klaar in een minuut</b><span>Vijf korte stappen met grote knoppen. Wie stopt, gaat later gewoon verder.</span></li>
+            <li><span className="stage__ficon"><Icon name="simple" size={18} /></span><b>Eenvoudige modus</b><span>Voor mensen met ASS of een verstandelijke beperking: één vraag per scherm, pictogrammen en voorlezen.</span></li>
+            <li><span className="stage__ficon"><Icon name="leaf" size={18} /></span><b>Meer dan een formulier</b><span>Dagplanning, eigen verloop, een ademoefening en snel een begeleider roepen.</span></li>
+          </ul>
+          <div className="stage__ctrl">
+            <button type="button" role="switch" aria-checked={simple} className="mswitch" onClick={() => setSimple(!simple)}>
+              <Icon name="simple" size={18} />Eenvoudige modus<span className="track" aria-hidden="true" />
+            </button>
+            <button type="button" className="btn btn--secondary" onClick={toStaff}><Icon name="clipboard" size={18} />Bekijk begeleiding</button>
+          </div>
+        </section>
+      )}
+
+      <div className="stage__col" ref={colRef}>
+        <div className="device-box" style={desktop ? { width: ow * scale, height: oh * scale } : undefined}>
+          <div className={cx("device", desktop && `device--${deviceId}`)}
+            style={desktop ? { width: ow, height: oh, padding: device.bezel, transform: `scale(${scale})` } : undefined}>
+            {desktop && <DeviceHardware device={deviceId} />}
+            <div className="device__screen" style={desktop ? { "--sat": `${device.sat}px`, "--sab": `${device.sab}px` } : undefined}>
+              {desktop && <StatusBar device={deviceId} now={now} />}
+              {desktop && deviceId === "iphone" && <span className="device__island" aria-hidden="true" />}
+              <PatientApp {...props} />
+              {desktop && <span className="device__home" aria-hidden="true" />}
+            </div>
+          </div>
         </div>
       </div>
+
+      <DisclaimerModal open={disc} onClose={() => setDisc(false)} />
     </div>
   );
 }
@@ -2852,25 +2921,53 @@ body { margin: 0; background: var(--bg); }
 .tableview th, .tableview td { padding: 7px 4px; text-align: left; border-bottom: 1px solid var(--line); }
 .tableview th { font-size: 12px; color: var(--ink-2); font-weight: 700; }
 
-/* ════ Patiënt: presentatie & toestel ════════════════════ */
+/* ════ Patiënt: toestel (mobiel schermvullend, desktop gesimuleerd) ════ */
 .stage { position: relative; min-height: 100vh; min-height: 100dvh; }
 .stage__info { display: none; }
+.stage__col { position: relative; }
 .device { position: relative; height: 100vh; height: 100dvh; }
 .device__screen { position: relative; height: 100%; overflow: hidden; background: var(--bg); }
-.device__status, .device__island, .device__home { display: none; }
 
-@media (min-width: 1024px) and (min-height: 700px) and (hover: hover) and (pointer: fine) {
-  .stage { display: grid; grid-template-columns: minmax(0, 460px) auto; align-items: center; justify-content: center; gap: clamp(48px, 7vw, 120px); padding: 32px 48px; }
-  .stage__info { display: block; }
-  .device {
-    width: 417px; height: min(876px, calc(100dvh - 64px)); padding: 12px; border-radius: 64px; background: #0B0F0D;
-    box-shadow: inset 0 0 0 1.5px #2D3430, 0 0 0 1px rgba(0, 0, 0, .06), 0 50px 90px -36px rgba(16, 24, 20, .5), 0 24px 44px -26px rgba(16, 24, 20, .4);
-  }
-  .device__screen { border-radius: 52px; --sat: 54px; --sab: 20px; }
-  .device__status { display: flex; position: absolute; z-index: 90; inset: 0 0 auto 0; height: 54px; padding: 4px 30px 0 44px; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 600; color: var(--ink); pointer-events: none; font-family: var(--font-ui); }
-  .device__icons { display: inline-flex; align-items: center; gap: 6px; fill: currentColor; }
-  .device__island { display: block; position: absolute; z-index: 91; top: 11px; left: 50%; width: 124px; height: 36px; margin-left: -62px; border-radius: 20px; background: #000; }
-  .device__home { display: block; position: absolute; z-index: 91; bottom: 7px; left: 50%; width: 136px; height: 5px; margin-left: -68px; border-radius: 3px; background: var(--ink); opacity: .8; pointer-events: none; }
+.stage.is-desktop { --device-frame: #0B0F0D; --device-ring: rgba(0, 0, 0, .08); max-width: 1440px; margin: 0 auto; height: 100vh; height: 100dvh; display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); align-items: center; gap: clamp(32px, 5vw, 96px); padding: 84px 56px 36px; }
+.stage.is-desktop .stage__info { display: block; }
+.stage.is-desktop .stage__col { height: 100%; min-height: 0; display: grid; place-items: center; }
+.device-box { position: relative; flex: none; }
+.stage.is-desktop .device { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.device--iphone { border-radius: 64px; background: var(--device-frame); box-shadow: inset 0 0 0 1.5px #3A403D, inset 0 0 0 4px #161A18, 0 0 0 1px var(--device-ring), 0 50px 90px -36px rgba(16, 24, 20, .5), 0 24px 44px -26px rgba(16, 24, 20, .4); }
+.device--iphone .device__screen { border-radius: 52px; }
+.device--ipad { border-radius: 42px; background: var(--device-frame); box-shadow: inset 0 0 0 1.5px #3A403D, inset 0 0 0 4px #171B19, 0 0 0 1px var(--device-ring), 0 60px 110px -40px rgba(16, 24, 20, .5), 0 28px 52px -30px rgba(16, 24, 20, .4); }
+.device--ipad .device__screen { border-radius: 20px; }
+.device__status { position: absolute; z-index: 90; inset: 0 0 auto 0; display: flex; align-items: center; justify-content: space-between; color: var(--ink); font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; pointer-events: none; }
+.device--iphone .device__status { height: 54px; padding: 4px 32px 0 46px; font-size: 16.5px; }
+.device--ipad .device__status { height: 26px; padding: 2px 24px 0; font-size: 13.5px; }
+.device__date { margin-left: 8px; font-weight: 500; }
+.device__icons { display: inline-flex; align-items: center; gap: 6px; fill: currentColor; }
+.device__island { position: absolute; z-index: 91; top: 11px; left: 50%; width: 124px; height: 36px; margin-left: -62px; border-radius: 20px; background: #000; pointer-events: none; }
+.device__home { position: absolute; z-index: 91; bottom: 7px; left: 50%; height: 5px; border-radius: 3px; background: var(--ink); opacity: .8; transform: translateX(-50%); pointer-events: none; }
+.device--iphone .device__home { width: 136px; }
+.device--ipad .device__home { width: 210px; bottom: 6px; }
+.device__hw { position: absolute; background: #242A27; border-radius: 2px; }
+.device--iphone .device__hw--action { left: -3px; top: 116px; width: 4px; height: 30px; }
+.device--iphone .device__hw--vol-up { left: -3px; top: 172px; width: 4px; height: 58px; }
+.device--iphone .device__hw--vol-down { left: -3px; top: 244px; width: 4px; height: 58px; }
+.device--iphone .device__hw--power { right: -3px; top: 200px; width: 4px; height: 92px; }
+.device--ipad .device__hw--power { top: -3px; right: 70px; width: 60px; height: 4px; }
+.device--ipad .device__hw--vol-up { right: -3px; top: 100px; width: 4px; height: 54px; }
+.device--ipad .device__hw--vol-down { right: -3px; top: 166px; width: 4px; height: 54px; }
+.device--ipad .device__hw--camera { top: 7px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #1C2220; box-shadow: inset 0 0 0 2px #0A0D0C; }
+
+.simbar { position: fixed; top: 20px; right: 24px; z-index: 100; display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: var(--shadow-1); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.simbar__seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface-3); }
+.simbar__seg button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px 0 11px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 13.5px; font-weight: 600; transition: background .2s var(--ease), color .2s, box-shadow .2s; }
+.simbar__seg button:hover { color: var(--ink); }
+.simbar__seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+.simbar__disc { margin-right: 4px; border-radius: 999px; }
+@media (prefers-color-scheme: dark) {
+  .stage.is-desktop { --device-frame: #232926; --device-ring: rgba(255, 255, 255, .12); }
+}
+@media (max-width: 1199px), (max-height: 759px) {
+  .stage.is-desktop { grid-template-columns: minmax(0, 1fr); }
+  .stage.is-desktop .stage__info { display: none; }
 }
 .stage__brand { display: flex; align-items: center; gap: 12px; margin-bottom: 44px; font-family: var(--font-display); font-size: 28px; }
 .stage__title { font-family: var(--font-display); font-weight: 400; font-size: clamp(52px, 5vw, 76px); line-height: .96; letter-spacing: -.02em; margin-top: 14px; }
@@ -2882,7 +2979,6 @@ body { margin: 0; background: var(--bg); }
 .stage__feats li > span:last-child { grid-column: 2; font-size: 14.5px; color: var(--ink-2); line-height: 1.45; }
 .stage__ficon { grid-row: span 2; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--brand-soft); color: var(--brand-soft-ink); }
 .stage__ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 34px; }
-.stage__disc { margin-top: 18px; }
 
 /* ════ Patiënt-app ═══════════════════════════════════════ */
 .app { position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-ui); container: app / inline-size; isolation: isolate; }
