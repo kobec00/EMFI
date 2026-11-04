@@ -304,24 +304,32 @@ function findInsight(entries) {
 }
 
 function buildHandover(rows) {
-  const lines = (p) => {
+  const status = (p) => {
     const out = [];
-    const c = p.checkin;
-    if (p.a.signals.length) out.push(p.a.signals.map((s) => s.text).join(" · "));
-    if (c) {
-      const e = EMFI.filter((d) => c.emfi[d.key]).map((d) => `${d.key}: ${c.emfi[d.key].toLowerCase()}`);
-      if (e.length) out.push(`EMFI — ${e.join(", ")}`);
-      if (c.thought && !c.thoughtPrivate) out.push(`“${c.thought}”`);
-      if (c.talk) out.push("Vraagt een gesprek.");
-    } else {
-      out.push(p.remindedAt ? `Herinnering verstuurd om ${fmtTime(p.remindedAt)}.` : "Nog geen herinnering verstuurd.");
-    }
-    if (p.callAck) out.push(`Vroeg een begeleider om ${fmtTime(p.callAt)}, opgevolgd om ${fmtTime(p.callAck)}.`);
-    p.notes.forEach((n) => out.push(`Rapportering ${fmtTime(n.at)} (${n.author}): ${n.text}`));
-    if (p.followedAt) out.push(`Opgevolgd om ${fmtTime(p.followedAt)}.`);
+    if (p.callAck) out.push({ icon: "check", text: `Vroeg een begeleider om ${fmtTime(p.callAt)}, opgevolgd om ${fmtTime(p.callAck)}` });
+    if (!p.checkin) out.push(p.remindedAt ? { icon: "bell", text: `Herinnering verstuurd om ${fmtTime(p.remindedAt)}` } : { icon: "bell", text: "Nog geen herinnering verstuurd" });
+    if (p.followedAt) out.push({ icon: "checkCircle", text: `Opgevolgd om ${fmtTime(p.followedAt)}` });
     return out;
   };
-  const item = (p) => ({ id: p.id, name: p.name, room: p.room, mood: p.checkin?.mood ?? null, lines: lines(p) });
+  // Wat de volgende dienst best doet (suggestie van Linde AI); stabiel zonder gespreksvraag: niets.
+  const nextFor = (p) => {
+    if (p.a.level === "stable" && !p.checkin?.talk) return null;
+    const t = suggestionFor(p);
+    return p.checkin?.talk && !t.includes("gesprek in.") ? `${t} Vraagt ook een gesprek.` : t;
+  };
+  const item = (p) => {
+    const c = p.checkin;
+    return {
+      id: p.id, name: p.name, room: p.room, mood: c?.mood ?? null,
+      signals: p.a.signals,
+      emfi: c ? EMFI.filter((d) => c.emfi[d.key]).map((d) => ({ key: d.key, name: d.name, value: c.emfi[d.key] })) : [],
+      quote: c && c.thought && !c.thoughtPrivate ? c.thought : null,
+      talk: !!c?.talk,
+      notes: p.notes,
+      status: status(p),
+      next: nextFor(p),
+    };
+  };
   return [
     { id: "critical", title: "Direct opvolgen", items: rows.filter((r) => r.a.level === "critical").map(item) },
     { id: "attention", title: "Opvolgen", items: rows.filter((r) => r.a.level === "attention").map(item) },
@@ -331,12 +339,21 @@ function buildHandover(rows) {
 }
 
 function handoverText(sections, now) {
-  const head = `Overdracht ${ORG.ward} (${ORG.hospital}) — ${shiftName(now).toLowerCase()}, ${fmtDateLong(now)}, ${fmtTime(now)}`;
-  const body = sections.map((s) => {
-    const items = s.items.length
-      ? s.items.map((it) => [`- ${it.name} (${it.room})${it.mood != null ? ` — ${MOODS[it.mood]}` : ""}`, ...it.lines.map((l) => `  ${l}`)].join("\n")).join("\n")
+  const head = `Overdracht ${ORG.ward} (${ORG.hospital}) — ${shiftName(now).toLowerCase()} → ${nextShiftName(now)}, ${fmtDateLong(now)}, ${fmtTime(now)}`;
+  const lines = (it) => [
+    it.signals.length > 0 && it.signals.map((sg) => sg.text).join(" · "),
+    it.emfi.length > 0 && `EMFI — ${it.emfi.map((e) => `${e.key}: ${e.value.toLowerCase()}`).join(", ")}`,
+    it.quote && `“${it.quote}”`,
+    it.talk && "Vraagt een gesprek.",
+    ...it.status.map((st) => `${st.text}.`),
+    ...it.notes.map((n) => `Rapportering ${fmtTime(n.at)} (${n.author}): ${n.text}`),
+    it.next && `Voor de ${nextShiftName(now)}: ${it.next}`,
+  ].filter(Boolean);
+  const body = sections.map((sec) => {
+    const items = sec.items.length
+      ? sec.items.map((it) => [`- ${it.name} (${it.room})${it.mood != null ? ` — ${MOODS[it.mood]}` : ""}`, ...lines(it).map((l) => `  ${l}`)].join("\n")).join("\n")
       : "- Niemand";
-    return `${s.title.toUpperCase()}\n${items}`;
+    return `${sec.title.toUpperCase()}\n${items}`;
   });
   return [head, ...body, `—\n${DISCLAIMER.names} ${DISCLAIMER.epd}`].join("\n\n");
 }
@@ -891,32 +908,10 @@ const ACT_VERB = {
 const LINDE_CHIPS = ["Wat staat er nog op de planning?", "Hoe was mijn week?", "Tips om te ontspannen", "Ik wil met iemand praten"];
 const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 
-/* start: pas beginnen met typen als dit true is; delay in ms; instant: meteen alles tonen. */
-const TYPE_STEP = 3;
-const TYPE_TICK = 16;
-const typeDuration = (text) => Math.ceil(text.length / TYPE_STEP) * TYPE_TICK;
-
-function useTypewriter(text, runKey = 0, { start = true, delay = 0, instant = false } = {}) {
-  const reduce = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const skip = reduce || instant;
-  const [n, setN] = useState(() => (skip ? text.length : 0));
-  useEffect(() => {
-    if (skip) { setN(text.length); return undefined; }
-    setN(0);
-    if (!start) return undefined;
-    let i = 0;
-    let id;
-    const t = setTimeout(() => {
-      id = setInterval(() => {
-        i += TYPE_STEP;
-        setN(Math.min(i, text.length));
-        if (i >= text.length) clearInterval(id);
-      }, TYPE_TICK);
-    }, delay);
-    return () => { clearTimeout(t); clearInterval(id); };
-  }, [text, runKey, skip, start, delay]);
-  return text.slice(0, n);
-}
+/* Woorden van Linde AI verschijnen na elkaar, van wazig naar scherp. */
+const WORD_STAGGER = 20;
+const wordCount = (text) => text.split(/\s+/).filter(Boolean).length;
+const revealDuration = (text) => wordCount(text) * WORD_STAGGER + 550;
 
 function LindeOrb({ size = 36 }) {
   return (
@@ -938,7 +933,7 @@ function LindeText({ text }) {
 }
 
 /* collapsible: de kop wordt een knop die de rest van de kaart in- en uitklapt. */
-function AiCard({ title, subtitle, tools, children, className, compact, collapsible, open = true, onToggle, cardRef, orbRef, style }) {
+function AiCard({ title, subtitle, tools, children, className, compact, collapsible, open = true, onToggle, cardRef, orbRef, style, overlay }) {
   const bodyId = useId();
   const bodyRef = useRef(null);
   useInert(bodyRef, !!collapsible && !open);
@@ -972,18 +967,26 @@ function AiCard({ title, subtitle, tools, children, className, compact, collapsi
           </div>
         ) : children}
       </div>
+      {overlay}
     </section>
   );
 }
 
-/* Tekst die verschijnt alsof Linde hem schrijft; schermlezers krijgen meteen de volledige tekst.
-   Een onzichtbare kopie houdt de plaats vrij, zodat de kaart niet groeit tijdens het typen. */
-function AiText({ text, runKey, className, start = true, delay = 0, instant = false }) {
-  const typed = useTypewriter(text, runKey, { start, delay, instant });
+/* Tekst die woord per woord verschijnt; schermlezers krijgen meteen de volledige tekst.
+   start = false houdt de woorden verborgen; delay in ms; instant toont alles meteen.
+   Alle woorden staan vanaf het begin op hun plaats, dus de kaart verspringt niet. */
+function AiText({ text, runKey = 0, className, start = true, delay = 0, instant = false }) {
+  const reduce = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const animate = !instant && !reduce;
+  let n = 0;
   return (
-    <p className={cx("ai__text", className)}>
-      <span className="ai__ghost" aria-hidden="true">{text}</span>
-      <span className="ai__typed" aria-hidden="true">{typed}{typed.length > 0 && typed.length < text.length && <span className="ai__caret" />}</span>
+    <p className={cx("ai__text", animate && "is-anim", animate && !start && "is-paused", className)}
+      style={animate ? { "--w-delay": `${delay}ms` } : undefined}>
+      <span aria-hidden="true" key={runKey}>
+        {animate
+          ? text.split(/(\s+)/).map((w, i) => (/^\s*$/.test(w) ? w : <span key={i} className="ai__w" style={{ "--i": n++ }}>{w}</span>))
+          : text}
+      </span>
       <span className="sr-only">{text}</span>
     </p>
   );
@@ -1037,21 +1040,43 @@ function buildWeekPoints(entries) {
 }
 
 /* Intro van Linde AI op Vandaag: één keer per bezoek, zodra de kaart in beeld komt.
-   Het bolletje verschijnt groot in het midden van de kaart, ademt even en
-   vliegt dan naar zijn plek in de kop. Daarna komt de titel en typt Linde AI. */
-const INTRO = { fly: 1500, title: 1050, text: 1300 };
+   Een groot, vloeiend bolletje verschijnt verend in het midden van de kaart en
+   stuurt een golf door de kaart. Het ademt even, zwiept dan in een boog naar zijn
+   plek in de kop en wordt daar het kleine bolletje. Ondertussen gloeit de rand op.
+   Daarna verschijnen de titel, de tekst (woord per woord) en de knoppen. */
+const INTRO = { orbAt: 100, fly: 1600 };
+INTRO.land = INTRO.orbAt + Math.round(INTRO.fly * 0.95);
+INTRO.title = INTRO.land - 180;
+INTRO.text = INTRO.land + 40;
 let lindeIntroPlayed = false;
+
+function LindeStageOrb({ orbRef }) {
+  return (
+    <span className="lorb-wrap" ref={orbRef}>
+      <span className="lorb">
+        <span className="lorb__blob lorb__blob--1" />
+        <span className="lorb__blob lorb__blob--2" />
+        <span className="lorb__blob lorb__blob--3" />
+        <span className="lorb__blob lorb__blob--4" />
+        <span className="lorb__gloss" />
+        <Icon name="sparkles" size={46} stroke={1.5} />
+      </span>
+    </span>
+  );
+}
 
 function LindeToday({ log, now, todayEntry, onChat }) {
   const text = buildDayBrief(log, now, todayEntry);
   const reduce = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [phase, setPhase] = useState(() => (lindeIntroPlayed || reduce ? "done" : "wait"));
+  const [staged, setStaged] = useState(false);
   const cardRef = useRef(null);
   const orbRef = useRef(null);
+  const stageRef = useRef(null);
 
   useEffect(() => {
     if (phase !== "wait") return undefined;
-    const go = () => { lindeIntroPlayed = true; setPhase("intro"); };
+    const go = () => { lindeIntroPlayed = true; setStaged(true); setPhase("intro"); };
     const el = cardRef.current;
     if (!el || typeof IntersectionObserver === "undefined") { go(); return undefined; }
     const io = new IntersectionObserver((list) => {
@@ -1064,29 +1089,49 @@ function LindeToday({ log, now, todayEntry, onChat }) {
   useLayoutEffect(() => {
     if (phase !== "intro") return undefined;
     const card = cardRef.current;
-    const orb = orbRef.current;
-    if (!card || !orb || !orb.animate) return undefined;
+    const stage = stageRef.current;
+    const target = orbRef.current;
+    if (!card || !stage || !target || !stage.animate) { setStaged(false); return undefined; }
     const cr = card.getBoundingClientRect();
-    const or = orb.getBoundingClientRect();
+    const sr = stage.getBoundingClientRect();
+    const tr = target.getBoundingClientRect();
     const k = cr.width / card.offsetWidth || 1; // in de simulator is alles geschaald
-    const dx = (cr.left + cr.width / 2 - (or.left + or.width / 2)) / k;
-    const dy = (cr.top + cr.height / 2 - (or.top + or.height / 2)) / k;
-    const at = (sc) => `translate(${dx}px, ${dy}px) scale(${sc})`;
-    const anim = orb.animate([
-      { transform: at(0), opacity: 0, easing: "cubic-bezier(.2, .9, .25, 1.4)" },
-      { transform: at(2.6), opacity: 1, offset: 0.3, easing: "ease-in-out" },
-      { transform: at(2.25), offset: 0.44, easing: "ease-in-out" },
-      { transform: at(2.45), offset: 0.56, easing: "cubic-bezier(.5, 0, .2, 1.3)" },
-      { transform: "translate(0px, 0px) scale(1)", opacity: 1 },
-    ], { duration: INTRO.fly, fill: "backwards" });
+    const dx = (tr.left + tr.width / 2 - (sr.left + sr.width / 2)) / k;
+    const dy = (tr.top + tr.height / 2 - (sr.top + sr.height / 2)) / k;
+    const end = target.offsetWidth / stage.offsetWidth;
+    const at = (x, y, sc) => `translate(${x}px, ${y}px) scale(${sc})`;
+    const anim = stage.animate([
+      { transform: at(0, 0, 0.15), opacity: 0, easing: "cubic-bezier(.2, .85, .25, 1.3)" },
+      { transform: at(0, 0, 1.06), opacity: 1, offset: 0.24, easing: "ease-in-out" },
+      { transform: at(0, 0, 0.96), offset: 0.34, easing: "ease-in-out" },
+      { transform: at(0, 0, 1.02), offset: 0.44, easing: "ease-in-out" },
+      { transform: at(0, 0, 0.98), offset: 0.54, easing: "ease-in" },
+      { transform: at(0, 0, 1.07), offset: 0.6, easing: "cubic-bezier(.55, 0, .45, 1)" },
+      { transform: at(dx * 0.62, dy * 0.3, (1 + end) / 2.4), offset: 0.8, easing: "cubic-bezier(.2, .6, .25, 1)" },
+      { transform: at(dx, dy, end), opacity: 1, offset: 0.95 },
+      { transform: at(dx, dy, end), opacity: 0 },
+    ], { duration: INTRO.fly, delay: INTRO.orbAt, fill: "both" });
+    anim.finished.then(() => setStaged(false), () => {});
     return () => anim.cancel();
   }, [phase]);
 
-  const chipsAt = INTRO.text + typeDuration(text) + 120;
+  const timing = {
+    "--t-orb": `${INTRO.orbAt}ms`,
+    "--t-land": `${INTRO.land}ms`,
+    "--t-title": `${INTRO.title}ms`,
+    "--t-chips": `${INTRO.text + revealDuration(text) - 350}ms`,
+  };
   return (
     <AiCard title={LINDE.name} subtitle="Je dag in het kort" cardRef={cardRef} orbRef={orbRef}
       className={cx("ai--patient", phase === "wait" && "is-wait", phase === "intro" && "is-intro")}
-      style={{ "--chips-at": `${chipsAt}ms`, "--title-at": `${INTRO.title}ms` }}>
+      style={phase === "intro" ? timing : undefined}
+      overlay={staged && (
+        <span className="ai__stage" aria-hidden="true">
+          <span className="ai__wave" />
+          <span className="ai__wave ai__wave--2" />
+          <LindeStageOrb orbRef={stageRef} />
+        </span>
+      )}>
       <AiText text={text} start={phase !== "wait"} instant={phase === "done"} delay={phase === "intro" ? INTRO.text : 0} />
       <div className="ai__chips">
         <button type="button" className="ai__ask" onClick={() => onChat()}><Icon name="chat" size={16} />Praat met {LINDE.name}</button>
@@ -2981,7 +3026,8 @@ function PatientRow({ p, now, selected, onSelect, onRemind }) {
   const more = a.signals.length - 1;
   const fresh = p.isSelf && c && now - c.at < 15 * 60000;
   return (
-    <li className={cx("prow", selected && "is-selected")}>
+    // Klik op een vakje met tooltip (bv. de 7 dagen) opent ook de patiënt; het toetsenbord gebruikt de knop.
+    <li className={cx("prow", selected && "is-selected")} onClick={(e) => { if (!e.target.closest("button")) onSelect(); }}>
       <button type="button" className="prow__btn" data-rowbtn="" data-id={p.id} onClick={onSelect} aria-current={selected ? "true" : undefined}>
         <span className="sr-only">
           {p.name}, {p.room}, {LEVELS[a.level].label}{c ? `, stemming ${MOODS[c.mood].toLowerCase()}` : ""}{main ? `, ${main.text}` : ""}. Details openen
@@ -3237,6 +3283,7 @@ function NotesBox({ p, value, byAi, onChange, onConcept, onAdd }) {
 function Handover({ rows, now, onDisclaimer }) {
   const sections = buildHandover(rows);
   const brief = useMemo(() => buildBriefing(rows), [rows]);
+  const next = nextShiftName(now);
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     const text = handoverText(sections, now);
@@ -3253,12 +3300,23 @@ function Handover({ rows, now, onDisclaimer }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2200);
   };
+  const count = (id) => sections.find((sec) => sec.id === id).items.length;
+  const checkedIn = rows.filter((r) => r.checkin).length;
+  const talks = rows.filter((r) => r.checkin?.talk).length;
+  const notes = rows.reduce((n, r) => n + r.notes.length, 0);
+  const kpis = [
+    { id: "in", label: "Ingecheckt", value: checkedIn, of: rows.length },
+    { id: "critical", label: "Direct opvolgen", value: count("critical") },
+    { id: "attention", label: "Opvolgen", value: count("attention") },
+    { id: "talk", label: "Gespreksvragen", value: talks },
+    { id: "notes", label: "Rapporteringen", value: notes },
+  ];
   return (
     <>
-      <header className="sm__top">
+      <header className="sm__top sm__top--doc">
         <div className="sm__titles">
           <h1 className="sm__title">Overdracht</h1>
-          <p className="sm__sub">{shiftName(now)} → {nextShiftName(now)} · {fmtDateLong(now)}</p>
+          <p className="sm__sub">{shiftName(now)} → {next} · {fmtDateLong(now)} · {fmtTime(now)}</p>
         </div>
         <div className="ho__actions">
           <button type="button" className="btn btn--secondary" onClick={copy} aria-live="polite">
@@ -3268,38 +3326,95 @@ function Handover({ rows, now, onDisclaimer }) {
         </div>
       </header>
       <div className="sm__content ho">
-        <AiCard title={`Samenvatting door ${LINDE.name}`} subtitle={`Voor de ${nextShiftName(now)}`} className="ai--staff ho__ai">
-          <AiText text={brief.intro} />
-          {brief.points.length > 0 && (
-            <ul className="ai__points">
-              {brief.points.map((pt) => <li key={pt.id}><span><b>{pt.name}</b> · {pt.tip}</span></li>)}
-            </ul>
-          )}
-        </AiCard>
-        <div className="ho__grid">
-          {sections.map((s) => (
-            <section key={s.id} className={cx("ho-sec", `ho-sec--${s.id}`)}>
-              <h2 className="ho-sec__title"><span className="ho-dot" aria-hidden="true" />{s.title}<span className="ho-sec__n">{s.items.length}</span></h2>
-              {s.items.length ? (
-                <ul className="ho-list">
-                  {s.items.map((it) => (
-                    <li key={it.id} className="ho-item">
-                      <p className="ho-item__top">
-                        <b>{it.name}</b><span>{it.room}</span>
-                        {it.mood != null && <span className="ho-item__mood"><MoodFace value={it.mood} size={18} tone />{MOODS[it.mood]}</span>}
-                      </p>
-                      {it.lines.map((l) => <p key={l} className="ho-item__line">{l}</p>)}
-                    </li>
-                  ))}
-                </ul>
-              ) : <p className="muted small">Niemand.</p>}
-            </section>
-          ))}
+        <div className="ho__summary">
+          <AiCard title={`Samenvatting door ${LINDE.name}`} subtitle={`Voor de ${next}`} className="ai--staff ho__ai">
+            <AiText text={brief.intro} />
+            <p className="ai__fine">Per patiënt staat een suggestie bij “Voor de {next}”. Weeg altijd zelf af, samen met het team.</p>
+          </AiCard>
+          <dl className="ho-kpis">
+            {kpis.map((k) => (
+              <div key={k.id} className={cx("ho-kpi", `ho-kpi--${k.id}`)}>
+                <dt>{k.label}</dt>
+                <dd>{k.value}{k.of != null && <small>/{k.of}</small>}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
-        <p className="disclaimer disclaimer--staff"><DisclaimerButton onClick={onDisclaimer} /></p>
+
+        <div className="ho-cols" aria-hidden="true"><span>Patiënt</span><span>Vandaag</span><span>Voor de {next}</span></div>
+        {sections.map((sec) => (
+          <section key={sec.id} className={cx("ho-sec", `ho-sec--${sec.id}`)} aria-labelledby={`ho-${sec.id}`}>
+            <h2 className="ho-sec__title" id={`ho-${sec.id}`}>
+              <span className="ho-dot" aria-hidden="true" />{sec.title}<span className="ho-sec__n">{sec.items.length}</span>
+            </h2>
+            {sec.items.length ? (
+              <ul className="ho-card">
+                {sec.items.map((it) => <HandoverRow key={it.id} it={it} next={next} />)}
+              </ul>
+            ) : <p className="ho-card ho-empty">Niemand.</p>}
+          </section>
+        ))}
+
+        <p className="disclaimer disclaimer--narrow"><DisclaimerButton onClick={onDisclaimer} /></p>
         <p className="print-only ho__print-note">Prototype. {DISCLAIMER.names} {DISCLAIMER.epd}</p>
       </div>
     </>
+  );
+}
+
+function HandoverRow({ it, next }) {
+  const hasMeta = it.talk || it.status.length > 0;
+  return (
+    <li className="ho-row">
+      <div className="ho-row__who">
+        <p className="ho-row__name">{it.name}</p>
+        <p className="ho-row__room">{it.room}</p>
+        {it.mood != null
+          ? <p className="ho-row__mood"><MoodFace value={it.mood} size={20} tone />{MOODS[it.mood]}</p>
+          : <p className="ho-row__mood is-none">Geen check-in</p>}
+      </div>
+
+      <div className="ho-row__today">
+        {it.signals.length > 0 && (
+          <ul className="ho-tags" aria-label="Signalen">
+            {it.signals.map((sg) => (
+              <li key={sg.text} className={cx("ho-tag", `ho-tag--${sg.level}`)}>
+                <Icon name={sg.level === "critical" ? "alert" : "eye"} size={13} stroke={2.4} />{sg.text}
+              </li>
+            ))}
+          </ul>
+        )}
+        {it.emfi.length > 0 && (
+          <ul className="ho-emfi" aria-label="EMFI">
+            {it.emfi.map((e) => (
+              <li key={e.key} className={`ho-emfi__i ho-emfi__i--${e.key.toLowerCase()}`}>
+                <b title={e.name} aria-label={e.name}>{e.key}</b>{e.value}
+              </li>
+            ))}
+          </ul>
+        )}
+        {it.quote && <blockquote className="ho-quote">{it.quote}</blockquote>}
+        {hasMeta && (
+          <ul className="ho-meta">
+            {it.talk && <li><Icon name="chat" size={14} />Vraagt een gesprek</li>}
+            {it.status.map((st) => <li key={st.text}><Icon name={st.icon} size={14} />{st.text}</li>)}
+          </ul>
+        )}
+        {it.notes.map((n) => (
+          <p key={n.at.toISOString()} className="ho-note">
+            <Icon name="clipboard" size={14} />
+            <span><b>Rapportering {fmtTime(n.at)} · {n.author}{n.ai ? ` · met ${LINDE.name}` : ""}</b>{n.text}</span>
+          </p>
+        ))}
+      </div>
+
+      <div className={cx("ho-row__next", !it.next && "is-empty")}>
+        <p className="ho-row__nextlabel">Voor de {next}</p>
+        {it.next
+          ? <p className="ho-row__nexttext"><Icon name="sparkles" size={14} /><span><span className="sr-only">Suggestie van {LINDE.name}: </span>{it.next}</span></p>
+          : <p className="ho-row__nexttext">Geen bijzondere actie.</p>}
+      </div>
+    </li>
   );
 }
 
@@ -4024,11 +4139,11 @@ body { margin: 0; background: var(--bg); }
 .ai__tool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 600; }
 .ai__tool:hover { background: var(--surface-3); color: var(--ink); }
 .ai__text { position: relative; font-size: 15.5px; line-height: 1.55; color: var(--ink); }
-.ai__ghost { visibility: hidden; }
-.ai__typed { position: absolute; inset: 0; }
-.ai__text--sm { min-height: 0; font-size: 14.5px; }
-.ai__caret { display: inline-block; width: 7px; height: 1.05em; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: linear-gradient(180deg, #8EA0FF, #6FD3B5); animation: caret .8s steps(2) infinite; }
-@keyframes caret { 50% { opacity: 0; } }
+.ai__text--sm { font-size: 14.5px; }
+/* Woorden van Linde AI: van wazig naar scherp, na elkaar */
+.ai__text.is-anim .ai__w { display: inline-block; animation: ai-word .6s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--w-delay, 0ms) + var(--i) * 20ms); }
+.ai__text.is-paused .ai__w { animation-play-state: paused; }
+@keyframes ai-word { from { opacity: 0; filter: blur(8px); transform: translateY(5px); } }
 
 /* Uitklapbare kaart (Verloop) */
 .ai__toggle { width: calc(100% + 12px); margin: -6px; padding: 6px; border: 0; border-radius: 16px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -4046,25 +4161,56 @@ body { margin: 0; background: var(--bg); }
 
 /* Intro van Linde AI op Vandaag */
 .ai.is-wait { opacity: 0; }
-.ai.is-intro { animation: ai-card-in .5s var(--ease) both, ai-spin-fast 1.9s cubic-bezier(.25, .1, .2, 1) both, ai-bloom 2s ease-out both, ai-spin 12s linear 1.9s infinite; }
-@keyframes ai-card-in { from { opacity: 0; transform: translateY(12px) scale(.97); } }
+.ai.is-intro { isolation: isolate; animation: ai-card-in .6s cubic-bezier(.2, .8, .2, 1) both, ai-spin-fast 2.2s cubic-bezier(.25, .1, .2, 1) both, ai-bloom 2.4s ease-out both, ai-spin 12s linear 2.2s infinite; }
+@keyframes ai-card-in { from { opacity: 0; transform: translateY(14px) scale(.965); } }
 @keyframes ai-spin-fast { from { --ai-angle: 0deg; } to { --ai-angle: 720deg; } }
 @keyframes ai-bloom {
   0%, 100% { box-shadow: 0 18px 40px -28px rgba(98, 80, 214, .55); }
-  35% { box-shadow: 0 0 0 1px rgba(142, 160, 255, .25), 0 0 38px 4px rgba(142, 160, 255, .5), 0 0 70px 12px rgba(111, 211, 181, .25); }
+  30% { box-shadow: 0 0 0 1px rgba(142, 160, 255, .25), 0 0 40px 4px rgba(142, 160, 255, .45), 0 0 80px 14px rgba(111, 211, 181, .22); }
 }
-.ai.is-intro .ai__inner::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(55% 65% at 50% 50%, rgba(142, 160, 255, .3), rgba(215, 166, 255, .14) 45%, transparent 72%); animation: ai-flash 1.7s ease-out both; }
-@keyframes ai-flash { 0% { opacity: 0; transform: scale(.6); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.25); } }
-.ai.is-intro .ai__orb { z-index: 2; }
-.ai.is-intro .ai__orb::before { content: ""; position: absolute; inset: -45%; z-index: -1; border-radius: 50%; background: radial-gradient(circle, rgba(142, 160, 255, .6), rgba(215, 166, 255, .28) 45%, transparent 70%); filter: blur(4px); animation: orb-glow 1.6s ease-out both; }
-@keyframes orb-glow { 0% { opacity: 0; } 25%, 60% { opacity: 1; } 100% { opacity: 0; } }
-.ai.is-intro .ai__orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(142, 160, 255, .75); opacity: 0; pointer-events: none; animation: orb-ripple .75s ease-out 1.4s forwards; }
-@keyframes orb-ripple { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(2.3); } }
-.ai.is-intro .linde-orb > svg { animation: orb-icon 1.5s cubic-bezier(.3, .7, .2, 1) both; }
-@keyframes orb-icon { 0% { opacity: 0; transform: rotate(-200deg) scale(.3); } 35% { opacity: 1; } 100% { transform: none; } }
-.ai.is-intro .ai__titles { animation: ai-title-in .55s var(--ease) var(--title-at, 1s) both; }
-@keyframes ai-title-in { from { opacity: 0; transform: translateX(-10px); } }
-.ai.is-intro .ai__chips { animation: ai-in .5s var(--ease) var(--chips-at, 2.4s) both; }
+/* Gloed rond de rand, zoals bij een spraakassistent */
+.ai.is-intro::after { content: ""; position: absolute; inset: -6px; z-index: -1; border-radius: 30px; background: conic-gradient(from var(--ai-angle), #6FD3B5, #8EA0FF, #D7A6FF, #F7A8C8, #F7CF7A, #6FD3B5); filter: blur(16px); opacity: 0; pointer-events: none; animation: ai-edge 2.6s ease-out both, ai-spin-fast 2.6s cubic-bezier(.25, .1, .2, 1) both; }
+@keyframes ai-edge { 0% { opacity: 0; transform: scale(.94); } 22% { opacity: .85; transform: scale(1); } 55% { opacity: .5; } 100% { opacity: 0; transform: scale(1.01); } }
+/* Zachte lichtflits in de kaart */
+.ai.is-intro .ai__inner::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(50% 60% at 50% 50%, rgba(142, 160, 255, .3), rgba(215, 166, 255, .13) 45%, transparent 72%); animation: ai-flash 1.9s ease-out var(--t-orb) both; }
+@keyframes ai-flash { 0% { opacity: 0; transform: scale(.5); } 28% { opacity: 1; } 60% { opacity: .7; } 100% { opacity: 0; transform: scale(1.3); } }
+
+/* Podium met het grote bolletje en de golven */
+.ai__stage { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; pointer-events: none; }
+.ai__wave { position: absolute; left: 50%; top: 50%; width: 116px; height: 116px; margin: -58px 0 0 -58px; border-radius: 50%; border: 1.5px solid rgba(142, 160, 255, .6); box-shadow: 0 0 24px rgba(142, 160, 255, .35), inset 0 0 18px rgba(111, 211, 181, .25); opacity: 0; animation: ai-wave 1.25s cubic-bezier(.15, .6, .3, 1) calc(var(--t-orb) + 320ms) forwards; }
+.ai__wave--2 { border-color: rgba(215, 166, 255, .5); animation-delay: calc(var(--t-orb) + 520ms); }
+@keyframes ai-wave { from { opacity: .9; transform: scale(.75); } to { opacity: 0; transform: scale(3.6); } }
+.lorb-wrap { position: relative; z-index: 0; width: 116px; height: 116px; display: grid; will-change: transform, opacity; }
+.lorb-wrap::before { content: ""; position: absolute; inset: -50%; z-index: -1; border-radius: 50%; background: radial-gradient(circle, rgba(142, 160, 255, .5) 0%, rgba(215, 166, 255, .22) 36%, rgba(111, 211, 181, .08) 52%, transparent 68%); }
+.lorb { position: relative; display: grid; place-items: center; overflow: hidden; isolation: isolate; border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 28%, #C9D1FF, #6250D6 58%, #2E7D68); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25), inset 0 -10px 24px rgba(30, 22, 96, .35), 0 12px 24px -12px rgba(75, 59, 192, .7); }
+.lorb__blob { position: absolute; width: 68%; height: 68%; border-radius: 50%; filter: blur(11px); opacity: .8; }
+.lorb__blob--1 { left: -8%; top: 0; background: #8EA0FF; animation: lorb-a 2.4s ease-in-out infinite alternate; }
+.lorb__blob--2 { right: -10%; top: -8%; background: #D7A6FF; animation: lorb-b 2.9s ease-in-out infinite alternate; }
+.lorb__blob--3 { left: 6%; bottom: -16%; background: #6FD3B5; animation: lorb-c 2.6s ease-in-out infinite alternate; }
+.lorb__blob--4 { right: 0; bottom: -8%; width: 50%; height: 50%; background: #F7A8C8; animation: lorb-d 2.1s ease-in-out infinite alternate; }
+@keyframes lorb-a { to { transform: translate(30%, 20%) scale(1.15); } }
+@keyframes lorb-b { to { transform: translate(-26%, 28%) scale(.9); } }
+@keyframes lorb-c { to { transform: translate(20%, -32%) scale(1.2); } }
+@keyframes lorb-d { to { transform: translate(-34%, -26%) scale(1.3); } }
+.lorb__gloss { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, .8), rgba(255, 255, 255, 0) 30%), radial-gradient(circle at 70% 86%, rgba(255, 255, 255, .2), transparent 40%); }
+.lorb > svg { position: relative; z-index: 1; filter: drop-shadow(0 2px 6px rgba(30, 22, 96, .45)); animation: lorb-icon 1.1s cubic-bezier(.2, .8, .2, 1) calc(var(--t-orb) + 80ms) both; }
+@keyframes lorb-icon { from { opacity: 0; transform: rotate(-120deg) scale(.4); } }
+
+/* Landing in de kop, titel, knoppen */
+.ai.is-intro .ai__head .ai__orb { animation: orb-land .4s cubic-bezier(.2, .9, .3, 1.4) calc(var(--t-land) - 40ms) both; }
+@keyframes orb-land { from { opacity: 0; transform: scale(.85); } }
+.ai.is-intro .ai__orb::before, .ai.is-intro .ai__orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(142, 160, 255, .75); opacity: 0; pointer-events: none; animation: orb-ripple .8s ease-out var(--t-land) forwards; }
+.ai.is-intro .ai__orb::after { border-color: rgba(111, 211, 181, .7); animation-delay: calc(var(--t-land) + 160ms); }
+@keyframes orb-ripple { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(2.6); } }
+.ai.is-intro .ai__titles { animation: ai-title-in .6s cubic-bezier(.2, .8, .2, 1) var(--t-title) both; }
+@keyframes ai-title-in { from { opacity: 0; transform: translateX(-12px); filter: blur(6px); } }
+.ai.is-intro .ai__ai { background-image: linear-gradient(100deg, #5B48CF 0%, #2E7D68 33%, #A89BFF 50%, #2E7D68 67%, #5B48CF 100%); background-size: 300% 100%; animation: ai-shine 1.4s ease-out calc(var(--t-title) + 250ms) both; }
+@keyframes ai-shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.ai.is-intro .ai__chips > * { animation: ai-pop .55s cubic-bezier(.2, .9, .3, 1.35) var(--t-chips) both; }
+.ai.is-intro .ai__chips > :nth-child(2) { animation-delay: calc(var(--t-chips) + 90ms); }
+.ai.is-intro .ai__ask { animation: ai-pop .55s cubic-bezier(.2, .9, .3, 1.35) var(--t-chips) both, ai-ask-glow 1.4s ease-out calc(var(--t-chips) + 350ms); }
+@keyframes ai-pop { from { opacity: 0; transform: translateY(10px) scale(.92); } }
+@keyframes ai-ask-glow { 40% { box-shadow: 0 0 0 6px rgba(142, 160, 255, .22), 0 10px 26px -8px rgba(98, 80, 214, .8); } }
 .ai__points { position: relative; display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
 .ai__points li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.45; color: var(--ink); animation: ai-in .5s var(--ease) both; }
 .ai__points li:nth-child(2) { animation-delay: .08s; }
@@ -4301,21 +4447,79 @@ body { margin: 0; background: var(--bg); }
 
 /* Overdracht */
 .ho__actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.ho__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
-.ho-sec { padding: 18px 20px; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-1); }
-.ho-sec__title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; margin-bottom: 10px; }
-.ho-sec__n { margin-left: auto; min-width: 28px; height: 26px; padding: 0 8px; display: grid; place-items: center; border-radius: 999px; background: var(--surface-3); font-size: 13px; color: var(--ink-2); }
-.ho-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); }
-.ho-sec--critical .ho-dot { background: var(--crit); }
-.ho-sec--attention .ho-dot { background: var(--warn); }
-.ho-sec--stable .ho-dot { background: var(--brand); }
-.ho-list { display: flex; flex-direction: column; }
-.ho-item { padding: 12px 0; border-top: 1px solid var(--line); }
-.ho-item:first-child { border-top: 0; padding-top: 4px; }
-.ho-item__top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
-.ho-item__top > span { font-size: 13.5px; color: var(--ink-2); }
-.ho-item__mood { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-weight: 600; color: var(--ink) !important; }
-.ho-item__line { margin-top: 4px; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+/* Overdracht: één kolom, per prioriteit, elke rij met dezelfde drie kolommen. */
+.sm__top--doc, .ho { --doc: 1240px; --ho-cols: 200px minmax(0, 1fr) minmax(240px, 300px); }
+.sm__top--doc { padding-inline: max(32px, calc((100% - var(--doc)) / 2 + 32px)); }
+.sm__content.ho { max-width: var(--doc); margin-inline: auto; gap: 12px; }
+.ho__summary { display: grid; gap: 12px; margin-bottom: 8px; }
+.ho-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; align-content: stretch; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--line); box-shadow: var(--shadow-1); }
+.ho-kpi { display: flex; flex-direction: column-reverse; justify-content: center; gap: 2px; padding: 12px 16px; background: var(--surface); }
+.ho-kpi dt { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-2); }
+.ho-kpi dd { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ho-kpi dd small { margin-left: 2px; font-size: 15px; font-weight: 600; color: var(--ink-3); }
+.ho-kpi--critical dt::before, .ho-kpi--attention dt::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--crit); }
+.ho-kpi--attention dt::before { background: var(--warn); }
+.ho-kpi--critical dd { color: var(--crit-ink); }
+.ho-cols { display: grid; grid-template-columns: var(--ho-cols); column-gap: 24px; padding: 4px 21px 0 25px; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.ho-sec { display: flex; flex-direction: column; gap: 8px; --accent: var(--ink-3); }
+.ho-sec--critical { --accent: var(--crit); }
+.ho-sec--attention { --accent: var(--warn); }
+.ho-sec--stable { --accent: var(--brand); }
+.ho-sec__title { display: flex; align-items: center; gap: 10px; padding: 8px 4px 0; font-size: 15px; font-weight: 700; }
+.ho-sec__n { min-width: 24px; height: 22px; padding: 0 7px; display: grid; place-items: center; border-radius: 999px; background: var(--surface-3); font-size: 12.5px; color: var(--ink-2); }
+.ho-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.ho-card { overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: inset 4px 0 0 var(--accent), var(--shadow-1); }
+.ho-empty { padding: 14px 24px; font-size: 14px; color: var(--ink-3); }
+.ho-row { display: grid; grid-template-columns: var(--ho-cols); column-gap: 24px; padding: 16px 20px 16px 24px; }
+.ho-row + .ho-row { border-top: 1px solid var(--line); }
+.ho-row__name { font-size: 15.5px; font-weight: 700; line-height: 1.25; }
+.ho-row__room { margin-top: 1px; font-size: 13px; color: var(--ink-2); }
+.ho-row__mood { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 13.5px; font-weight: 600; }
+.ho-row__mood.is-none { color: var(--ink-3); font-weight: 500; }
+.ho-row__today { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; min-width: 0; font-size: 14px; }
+.ho-tags, .ho-emfi, .ho-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.ho-tag { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 650; }
+.ho-tag--critical { background: var(--crit-soft); color: var(--crit-ink); }
+.ho-tag--attention { background: var(--warn-soft); color: var(--warn-ink); }
+.ho-emfi { gap: 6px 14px; }
+.ho-emfi__i { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--ink); }
+.ho-emfi__i b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; font-size: 11px; font-weight: 800; }
+.ho-emfi__i--e b { background: var(--e-soft); color: var(--e-ink); }
+.ho-emfi__i--m b { background: var(--m-soft); color: var(--m-ink); }
+.ho-emfi__i--f b { background: var(--f-soft); color: var(--f-ink); }
+.ho-emfi__i--i b { background: var(--i-soft); color: var(--i-ink); }
+.ho-quote { margin: 0; padding-left: 12px; border-left: 3px solid var(--line-strong); font-style: italic; line-height: 1.45; color: var(--ink); }
+.ho-meta li { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.ho-meta li + li::before { content: "·"; margin-right: 2px; color: var(--ink-3); }
+.ho-note { display: flex; gap: 9px; width: 100%; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+.ho-note > svg { flex: none; margin-top: 2px; color: var(--ink-2); }
+.ho-note b { display: block; margin-bottom: 1px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.ho-row__next { align-self: start; padding: 11px 13px; border: 1px solid rgba(98, 80, 214, .16); border-radius: 14px; background: linear-gradient(135deg, rgba(142, 160, 255, .1), rgba(111, 211, 181, .1)); }
+.ho-row__next.is-empty { padding-left: 0; border-color: transparent; background: none; color: var(--ink-3); }
+.ho-row__nextlabel { display: none; margin-bottom: 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.ho-row__nexttext { display: flex; gap: 8px; font-size: 14px; line-height: 1.45; }
+.ho-row__nexttext > svg { flex: none; margin-top: 3px; color: #5B48CF; }
+@media (max-width: 1279px) {
+  .sm__top--doc, .ho { --ho-cols: 170px minmax(0, 1fr) 250px; }
+}
+@media (max-width: 1100px) {
+  .sm__top--doc, .ho { --ho-cols: 160px minmax(0, 1fr); }
+  .ho-cols span:last-child { display: none; }
+  .ho-row__next { grid-column: 2; margin-top: 12px; }
+  .ho-row__next.is-empty { display: none; }
+  .ho-row__nextlabel { display: block; }
+}
+@media (max-width: 860px) {
+  .ho-cols { display: none; }
+  .ho-row { grid-template-columns: 1fr; row-gap: 12px; padding: 14px 16px 14px 20px; }
+  .ho-row__who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .ho-row__mood { margin: 0 0 0 auto; align-self: center; }
+  .ho-row__next { grid-column: auto; margin-top: 0; }
+}
+@media (max-width: 560px) {
+  .ho-kpis { grid-template-columns: 1fr 1fr; }
+  .ho-kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
 
 /* ── Responsief (portaal) ──────────────────────────────── */
 @media (max-width: 1279px) {
@@ -4337,7 +4541,6 @@ body { margin: 0; background: var(--bg); }
   .sb__demo small { display: none; }
   .sm__top { position: static; padding: 20px 16px 6px; border-bottom: 0; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .sm__content { padding: 14px 16px 48px; }
-  .ho__grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
   .stats-strip { grid-template-columns: 1fr 1fr; }
@@ -4365,8 +4568,18 @@ body { margin: 0; background: var(--bg); }
   .staff { display: block; }
   .sm__top { position: static; background: none; border: 0; padding: 0 0 12px; }
   .sm__content { padding: 0; }
-  .ho__grid { grid-template-columns: 1fr; }
-  .ho-sec { box-shadow: none; break-inside: avoid; }
+  .sm__content.ho { max-width: none; }
+  .ho { --ho-cols: 150px minmax(0, 1fr) 210px; }
+  .ho-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+  .ho-kpi:last-child:nth-child(odd) { grid-column: auto !important; }
+  .ho-cols { display: grid !important; }
+  .ho-cols span:last-child { display: block !important; }
+  .ho-row__next { grid-column: auto !important; margin-top: 0 !important; }
+  .ho-row { grid-template-columns: var(--ho-cols) !important; break-inside: avoid; }
+  .ho-row__next.is-empty { display: block !important; }
+  .ho-row__nextlabel { display: none !important; }
+  .ho-card { box-shadow: none; border-left: 4px solid var(--accent); }
+  .ho-kpis { box-shadow: none; }
   body, .zl { background: #fff !important; }
 }
 

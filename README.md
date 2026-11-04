@@ -19,7 +19,7 @@ Op een computer draait de app in een gesimuleerd toestel dat meeschaalt met je v
 
 Op **Vandaag** en **Verloop** staat een kader van Linde AI met een korte samenvatting van je dag of je week.
 
-- Op **Vandaag** komt Linde AI binnen met een korte intro, één keer per bezoek en zodra de kaart in beeld is. Het paarse bolletje verschijnt groot in het midden, landt in de kop, en dan typt Linde AI de samenvatting. Wie op het toestel minder beweging heeft ingesteld, ziet meteen de volledige kaart.
+- Op **Vandaag** komt Linde AI binnen met een korte intro, één keer per bezoek en zodra de kaart in beeld is. De rand van de kaart gloeit op en een groot, vloeiend bolletje verschijnt verend in het midden. Het stuurt een golf door de kaart en zwiept dan in een boog naar zijn plek in de kop. Daarna verschijnt de samenvatting woord per woord, van wazig naar scherp. Wie op het toestel minder beweging heeft ingesteld, ziet meteen de volledige kaart.
 - Op **Verloop** is de kaart ingeklapt. Tik op de kop om de samenvatting te openen.
 
 Via **Praat met Linde AI** open je een chat voor kleine vragen: wat er nog op de planning staat, hoe je week was, tips om te ontspannen, bezoekuren of maaltijden.
@@ -51,7 +51,10 @@ Een werkplek met zijbalk, gemaakt voor een groot scherm.
 - **Patiëntenlijst per prioriteit**: gegroepeerd in *Direct opvolgen*, *Opvolgen*, *Stabiel* en *Nog geen check-in*. Per persoon zie je de stemming, de laatste 7 dagen en het belangrijkste aandachtspunt.
 - **Detailpaneel naast de lijst** met drie tabbladen: *Vandaag* (EMFI, slaap, activiteiten, notitie, signalen), *Verloop* (weekgrafiek) en *Rapportering* (opslaan in het dossier). Met ↑ en ↓ ga je door de lijst.
 - **Acties**: "Markeer als opgevolgd", een herinnering sturen, en reageren op "vraagt nu een begeleider". De patiënt ziet die reactie meteen in de app.
-- **Overdracht**: automatisch samengesteld per prioriteit, om te kopiëren of af te drukken.
+- **Overdracht**: automatisch samengesteld, om te kopiëren of af te drukken. Bovenaan staan een samenvatting van Linde AI en de kerncijfers van de dienst. Daaronder volgen de patiënten per prioriteit, elk in drie vaste kolommen:
+  - *Patiënt*: naam, kamer en stemming.
+  - *Vandaag*: signalen, EMFI, gedeelde notitie, gespreksvraag, opvolging en rapportering.
+  - *Voor de volgende dienst*: een suggestie van Linde AI.
 
 ### AI-functies (demo)
 
