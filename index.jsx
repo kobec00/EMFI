@@ -30,6 +30,7 @@ const ORG = {
   wardType: "Opname & behandeling volwassenen",
   epd: "HErOS+",
   epdVendor: "Obasi",
+  epdVendorUrl: "https://www.obasi.be",
 };
 
 /* Disclaimer, op één plek zodat de tekst overal gelijk blijft. */
@@ -38,7 +39,7 @@ const DISCLAIMER = {
   epd: `${ORG.epd} is een bestaand patiëntendossier van ${ORG.epdVendor}. Het wordt hier enkel als voorbeeld gebruikt; de koppeling in deze demo is gesimuleerd.`,
   items: [
     { icon: "users", title: "Fictieve namen", text: `Alle namen van patiënten, medewerkers, het ziekenhuis (${ORG.hospital}) en de afdeling (${ORG.ward}) zijn fictief of pseudoniemen. Gelijkenissen met bestaande personen of voorzieningen berusten op toeval.` },
-    { icon: "shield", title: `${ORG.epd} als voorbeeld`, text: `${ORG.epd} is een bestaand elektronisch patiëntendossier van ${ORG.epdVendor}. Het wordt hier enkel als voorbeeld gebruikt. Er is geen echte koppeling: de synchronisatie in deze demo is gesimuleerd.` },
+    { icon: "shield", title: `${ORG.epd} als voorbeeld`, text: <>{ORG.epd} is een bestaand elektronisch patiëntendossier van <a href={ORG.epdVendorUrl} target="_blank" rel="noopener noreferrer">{ORG.epdVendor}</a>. Het wordt hier enkel als voorbeeld gebruikt. Er is geen echte koppeling: de synchronisatie in deze demo is gesimuleerd.</> },
     { icon: "phone", title: "Gegevens blijven hier", text: "Wat je invult, wordt alleen in de browser van dit toestel bewaard en nergens naartoe gestuurd." },
   ],
 };
@@ -979,7 +980,7 @@ function PatientStage(props) {
       {desktop && (
         <div className="simbar" role="toolbar" aria-label="Simulatie">
           <div className="simbar__actions">
-            <button type="button" className="simbtn" onClick={toStaff}><Icon name="clipboard" size={15} />Bekijk begeleiding</button>
+            <button type="button" className="simbtn" onClick={toStaff}><Icon name="clipboard" size={15} />Bekijk begeleidersportaal</button>
           </div>
           <div className="simbar__seg" role="group" aria-label="Toestel">
             {Object.entries(DEVICES).map(([id, d]) => (
@@ -1162,7 +1163,7 @@ function MenuSheet({ open, onClose, simple, setSimple, toStaff, onReset, onDiscl
           <li>
             <button type="button" className="menu__item" onClick={toStaff}>
               <span className="menu__icon"><Icon name="clipboard" /></span>
-              <span className="menu__text">Bekijk als begeleiding<small>Demo van de werkplek voor het team</small></span>
+              <span className="menu__text">Bekijk begeleidersportaal<small>Demo van de werkplek voor het team</small></span>
               <Icon name="chevronRight" />
             </button>
           </li>
@@ -3212,6 +3213,8 @@ body { margin: 0; background: var(--bg); }
 .disc__list { display: flex; flex-direction: column; gap: 14px; margin: 18px 0 20px; }
 .disc__list li { display: flex; align-items: flex-start; gap: 12px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
 .disc__list b { display: block; color: var(--ink); font-size: 15px; }
+.disc__list a { color: var(--brand-soft-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.disc__list a:hover { color: var(--ink); }
 .disc__icon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--surface-3); color: var(--ink-2); }
 .disc__close { margin-top: 2px; }
 .modal { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 0; border: 0; border-radius: 26px; background: var(--surface); color: var(--ink); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .45); overflow: auto; }

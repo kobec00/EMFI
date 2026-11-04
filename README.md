@@ -2,13 +2,13 @@
 
 Prototype van een dagelijkse check-in voor patiënten van een psychiatrische afdeling, met een werkplek voor de begeleiding. De check-in volgt vier gebieden: **E**moties, **M**entaal, **F**ysiek en **I**nteractie.
 
-> Alle namen van patiënten, medewerkers, het ziekenhuis (PC Zilverlinde) en de afdeling (De Meander) zijn **fictief of pseudoniemen**. HErOS+ is een bestaand patiëntendossier van Obasi. Het wordt hier enkel als voorbeeld gebruikt en de koppeling is gesimuleerd. Alles wat je invult, blijft in de browser van het toestel.
+> Alle namen van patiënten, medewerkers, het ziekenhuis (PC Zilverlinde) en de afdeling (De Meander) zijn **fictief of pseudoniemen**. HErOS+ is een bestaand patiëntendossier van [Obasi](https://www.obasi.be). Het wordt hier enkel als voorbeeld gebruikt en de koppeling is gesimuleerd. Alles wat je invult, blijft in de browser van het toestel.
 
 ## Patiënt-app (telefoon en tablet)
 
 Ontworpen als echte app: vaste bovenbalk, tabbalk onderaan, panelen die van onder openschuiven, en de terugknop van de telefoon werkt zoals je verwacht.
 
-Op een computer draait de app in een gesimuleerd toestel dat meeschaalt met je venster. Rechtsboven wissel je tussen **iPhone** (met dynamic island) en **iPad** (liggend, over de volle breedte, met de app in twee kolommen). Wat je aan het invullen bent, blijft staan als je wisselt, en de browser onthoudt je keuze. Daarnaast staat, los van die schakelaar, de knop **Bekijk begeleiding**. De disclaimer open je met het kleine **i**-knopje rechtsonder. Op een telefoon of tablet zelf is de app gewoon schermvullend.
+Op een computer draait de app in een gesimuleerd toestel dat meeschaalt met je venster. Rechtsboven wissel je tussen **iPhone** (met dynamic island) en **iPad** (liggend, over de volle breedte, met de app in twee kolommen). Wat je aan het invullen bent, blijft staan als je wisselt, en de browser onthoudt je keuze. Daarnaast staat, los van die schakelaar, de knop **Bekijk begeleidersportaal**. De disclaimer open je met het kleine **i**-knopje rechtsonder. Op een telefoon of tablet zelf is de app gewoon schermvullend.
 
 - **Vandaag**: begroeting, check-in starten met één tik op een gezichtje, de dagplanning van de afdeling en je week in één oogopslag.
 - **Check-in in vijf stappen**: stemming, EMFI (minstens 2 van de 4, met "Weet ik niet"), slaap en activiteiten, een gespreksvraag en notitie (delen of privé), en tot slot nakijken. Stop je halverwege, dan ga je later verder waar je was.
