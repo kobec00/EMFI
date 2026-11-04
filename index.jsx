@@ -18,7 +18,7 @@
  * Eén bestand, enkel React als afhankelijkheid. `npm run build` maakt
  * er een standalone index.html van.
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 /* ════════════════════════════════════════════════════════════════
    Inhoud & data
@@ -873,13 +873,15 @@ function DisclaimerModal({ open, onClose }) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Lumi — AI-assistent (demo)
-   Lumi is niet gekoppeld aan een taalmodel: alle teksten worden met
-   eenvoudige regels uit de gegevens van de demo opgebouwd. Bij woorden
-   die op een crisis wijzen, verwijst Lumi altijd door naar het team.
+   Lumi AI — chatbot (demo)
+   "AI" hoort bij de naam, zodat niemand denkt met een medewerker te
+   chatten. Lumi AI is niet gekoppeld aan een taalmodel: alle teksten
+   worden met eenvoudige regels uit de gegevens van de demo opgebouwd.
+   Bij woorden die op een crisis wijzen, verwijst Lumi AI altijd door
+   naar het team.
    ════════════════════════════════════════════════════════════════ */
 
-const LUMI = { name: "Lumi", tagline: "AI-assistent · demo" };
+const LUMI = { name: "Lumi AI", tagline: "Chatbot · geen mens" };
 const MOOD_PHRASE = ["heel slecht", "niet goed", "redelijk", "goed", "heel goed"];
 const ACT_VERB = {
   Wandelen: "ging wandelen", Groepsactiviteit: "meedeed aan een groepsactiviteit", Gesprek: "een gesprek had",
@@ -913,14 +915,25 @@ function LumiOrb({ size = 36 }) {
   );
 }
 
+/* Toont "Lumi AI" in een tekst met het woord "AI" in het kleurverloop van Lumi. */
+function LumiText({ text }) {
+  const parts = text.split(LUMI.name);
+  return parts.map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && <span className="ai__brand">Lumi <span className="ai__ai">AI</span></span>}
+      {part}
+    </Fragment>
+  ));
+}
+
 function AiCard({ title, subtitle, tools, children, className, compact }) {
   return (
-    <section className={cx("ai", compact && "ai--compact", className)} aria-label={`${title}, AI-assistent`}>
+    <section className={cx("ai", compact && "ai--compact", className)} aria-label={title}>
       <div className="ai__inner">
         <header className="ai__head">
           <LumiOrb size={compact ? 30 : 36} />
           <div className="ai__titles">
-            <p className="ai__title">{title}<span className="ai__chip">AI</span></p>
+            <p className="ai__title"><LumiText text={title} /></p>
             {subtitle && <p className="ai__sub">{subtitle}</p>}
           </div>
           {tools && <div className="ai__tools">{tools}</div>}
@@ -1071,7 +1084,7 @@ function lumiReply(raw, ctx) {
     const cur = currentScheduleItem(ctx.now);
     const next = nextScheduleItems(ctx.now, 1)[0];
     const lead = cur ? `Nu is er ${lowerFirst(cur.title)} ${cur.where}, je mag gerust aansluiten. ` : next ? `Om ${next.time} is er ${lowerFirst(next.title)}. ` : "";
-    return { text: `${lead}Of probeer iets uit je signaleringsplan: een rondje in de tuin, muziek luisteren of een paar bladzijden lezen.` };
+    return { text: `${lead}${lead ? "Of probeer" : "Probeer"} iets uit je signaleringsplan: een rondje in de tuin, muziek luisteren of een paar bladzijden lezen.` };
   }
   if (has(/bezoek|familie|\bzus\b|\bbroer\b|mama|papa|vriend/)) {
     return { text: "Bezoek is welkom elke dag tussen 14:00 en 20:00, in de cafetaria of in de tuin. Spreek het wel even af met je begeleider." };
@@ -1097,7 +1110,7 @@ function lumiReply(raw, ctx) {
 function LumiChat({ initial, ctx, onClose, onAction }) {
   const [msgs, setMsgs] = useState(() => [{
     id: "hello", from: "lumi",
-    text: `Hoi ${SELF.firstName}, ik ben ${LUMI.name} 👋 Ik help je met kleine vragen over je dag, je verloop of om even tot rust te komen. Ik ben geen hulpverlener: voor iets dringends vraag je meteen een begeleider.`,
+    text: `Hoi ${SELF.firstName}, ik ben ${LUMI.name} 👋 Ik ben een chatbot, geen mens. Ik help je met kleine vragen over je dag, je verloop of om even tot rust te komen. Voor iets dringends vraag je meteen een begeleider.`,
     chips: LUMI_CHIPS,
   }]);
   const [input, setInput] = useState("");
@@ -1150,7 +1163,7 @@ function LumiChat({ initial, ctx, onClose, onAction }) {
         <button type="button" className="iconbtn iconbtn--plain" onClick={onClose} aria-label="Terug"><Icon name="chevronLeft" size={22} /></button>
         <LumiOrb size={38} />
         <div className="chat__who">
-          <p className="chat__name" id={tid}>{LUMI.name}<span className="ai__chip">AI</span></p>
+          <p className="chat__name" id={tid}><LumiText text={LUMI.name} /></p>
           <p className="chat__sub">{LUMI.tagline}</p>
         </div>
       </header>
@@ -1295,7 +1308,7 @@ function LumiBriefing({ rows, now, onSelect }) {
               ))}
             </ul>
           )}
-          <p className="ai__fine">{LUMI.name} is een AI-assistent (demo) en maakt suggesties op basis van de check-ins. Weeg altijd zelf af, samen met het team.</p>
+          <p className="ai__fine">{LUMI.name} is een demo en maakt suggesties op basis van de check-ins. Weeg altijd zelf af, samen met het team.</p>
         </>
       )}
     </AiCard>
@@ -3912,8 +3925,10 @@ body { margin: 0; background: var(--bg); }
 .ai__head { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .lumi-orb { flex: none; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at 30% 28%, #C9D1FF, #6250D6 58%, #2E7D68); box-shadow: 0 0 0 3px rgba(142, 160, 255, .2), 0 6px 16px -6px rgba(98, 80, 214, .65); }
 .ai__titles { flex: 1; min-width: 0; }
-.ai__title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; line-height: 1.2; }
-.ai__chip { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; background: linear-gradient(90deg, rgba(142, 160, 255, .25), rgba(111, 211, 181, .25)); color: #3E2FA8; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; }
+.ai__title { font-size: 16px; font-weight: 700; line-height: 1.2; }
+.ai__brand { white-space: nowrap; }
+.ai__ai { background: linear-gradient(100deg, #5B48CF, #2E7D68); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+@media (forced-colors: active) { .ai__ai { color: CanvasText; background: none; } }
 .ai__sub { font-size: 12.5px; color: var(--ink-2); }
 .ai__tools { display: flex; gap: 2px; }
 .ai__tool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 600; }
@@ -3946,7 +3961,7 @@ body { margin: 0; background: var(--bg); }
 .chat { position: absolute; inset: 0; z-index: 55; display: flex; flex-direction: column; background: var(--bg); animation: flow-in .3s var(--ease); }
 .chat__head { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(var(--sat) + 6px) 14px 10px 8px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .chat__who { flex: 1; min-width: 0; }
-.chat__name { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; line-height: 1.2; }
+.chat__name { font-size: 17px; font-weight: 700; line-height: 1.2; }
 .chat__sub { font-size: 12.5px; color: var(--ink-2); }
 .chat__safety { flex: none; display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--warn-soft); color: var(--warn-ink); font-size: 13.5px; font-weight: 600; line-height: 1.35; }
 .chat__safety p { flex: 1; min-width: 0; }
