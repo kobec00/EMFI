@@ -85,6 +85,7 @@ Zodra de site via `https` online staat, bijvoorbeeld op GitHub Pages, kan je hem
 - `index.html` wordt **gegenereerd**. Het is een zelfstandig bestand waar React al in zit.
 - `build.mjs` is het buildscript (esbuild).
 - `manifest.webmanifest`, `sw.js` en `icons/` zorgen ervoor dat je de site als app kan installeren en offline kan gebruiken.
+- `LICENSE` bevat de licentie (MIT).
 
 ## Aanpassen en bouwen
 
@@ -97,3 +98,57 @@ npm install
 ```bash
 npm run build
 ```
+
+## Licentie
+
+© 2026 kobec00. Dit project valt onder de [MIT-licentie](LICENSE). Kort gezegd: je mag de software vrij gebruiken, aanpassen en verspreiden, zolang de copyright- en licentievermelding erbij blijft. De software wordt geleverd zonder enige garantie.
+
+De Engelse tekst in [`LICENSE`](LICENSE) is de officiële versie. De Nederlandse vertaling is enkel ter informatie. De licentie staat ook in de disclaimer van de app.
+
+<details>
+<summary><b>MIT-licentie</b> (Nederlandse vertaling)</summary>
+
+<br>
+
+**MIT-licentie**
+
+Copyright (c) 2026 kobec00
+
+Hierbij wordt kosteloos toestemming verleend aan iedereen die een kopie verkrijgt van deze software en de bijbehorende documentatiebestanden (de “Software”), om zonder beperking met de Software om te gaan, met inbegrip van, maar niet beperkt tot, het recht om kopieën van de Software te gebruiken, te kopiëren, te wijzigen, samen te voegen, te publiceren, te verspreiden, in sublicentie te geven en/of te verkopen, en om personen aan wie de Software wordt verstrekt toe te staan dit ook te doen, onder de volgende voorwaarden:
+
+De bovenstaande copyrightvermelding en deze toestemmingsvermelding moeten worden opgenomen in alle kopieën of substantiële delen van de Software.
+
+DE SOFTWARE WORDT GELEVERD “ZOALS DEZE IS”, ZONDER ENIGE GARANTIE, UITDRUKKELIJK OF STILZWIJGEND, MET INBEGRIP VAN, MAAR NIET BEPERKT TOT, DE GARANTIES VAN VERKOOPBAARHEID, GESCHIKTHEID VOOR EEN BEPAALD DOEL EN NIET-INBREUK. IN GEEN GEVAL ZIJN DE AUTEURS OF HOUDERS VAN HET AUTEURSRECHT AANSPRAKELIJK VOOR ENIGE VORDERING, SCHADE OF ANDERE AANSPRAKELIJKHEID, HETZIJ OP GROND VAN EEN OVEREENKOMST, EEN ONRECHTMATIGE DAAD OF ANDERSZINS, DIE VOORTVLOEIT UIT OF VERBAND HOUDT MET DE SOFTWARE OF HET GEBRUIK ERVAN OF ANDERE HANDELINGEN MET DE SOFTWARE.
+
+*Deze vertaling is enkel ter informatie. Juridisch geldt de Engelse tekst.*
+
+</details>
+
+<details>
+<summary><b>MIT License</b> (original, English)</summary>
+
+```text
+MIT License
+
+Copyright (c) 2026 kobec00
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+</details>

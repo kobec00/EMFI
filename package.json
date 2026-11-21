@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "description": "EMFI check-in prototype voor een (fictieve) psychiatrische afdeling: patiënt, eenvoudige modus en begeleiding.",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "node build.mjs"
