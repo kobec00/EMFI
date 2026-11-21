@@ -41,7 +41,25 @@ const DISCLAIMER = {
     { icon: "users", title: "Fictieve namen", text: `Alle namen van patiënten, medewerkers, het ziekenhuis (${ORG.hospital}) en de afdeling (${ORG.ward}) zijn fictief of pseudoniemen. Gelijkenissen met bestaande personen of voorzieningen berusten op toeval.` },
     { icon: "shield", title: `${ORG.epd} als voorbeeld`, text: <>{ORG.epd} is een bestaand elektronisch patiëntendossier van <a href={ORG.epdVendorUrl} target="_blank" rel="noopener noreferrer">{ORG.epdVendor}</a>. Het wordt hier enkel als voorbeeld gebruikt. Er is geen echte koppeling: de synchronisatie in deze demo is gesimuleerd.</> },
     { icon: "phone", title: "Gegevens blijven hier", text: "Wat je invult, wordt alleen in de browser van dit toestel bewaard en nergens naartoe gestuurd." },
+    { icon: "book", title: "MIT-licentie", text: "© 2026 kobec00. Kort gezegd: je mag deze software vrij gebruiken, aanpassen en verspreiden, zolang de copyright- en licentievermelding erbij blijft. De software wordt geleverd zonder enige garantie." },
   ],
+};
+
+/* Licentie. De Engelse tekst is de officiële (ook in LICENSE); de Nederlandse
+   vertaling is enkel ter informatie. */
+const LICENSE = {
+  copyright: "Copyright (c) 2026 kobec00",
+  en: [
+    "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:",
+    "The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.",
+    "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+  ],
+  nl: [
+    "Hierbij wordt kosteloos toestemming verleend aan iedereen die een kopie verkrijgt van deze software en de bijbehorende documentatiebestanden (de “Software”), om zonder beperking met de Software om te gaan, met inbegrip van, maar niet beperkt tot, het recht om kopieën van de Software te gebruiken, te kopiëren, te wijzigen, samen te voegen, te publiceren, te verspreiden, in sublicentie te geven en/of te verkopen, en om personen aan wie de Software wordt verstrekt toe te staan dit ook te doen, onder de volgende voorwaarden:",
+    "De bovenstaande copyrightvermelding en deze toestemmingsvermelding moeten worden opgenomen in alle kopieën of substantiële delen van de Software.",
+    "DE SOFTWARE WORDT GELEVERD “ZOALS DEZE IS”, ZONDER ENIGE GARANTIE, UITDRUKKELIJK OF STILZWIJGEND, MET INBEGRIP VAN, MAAR NIET BEPERKT TOT, DE GARANTIES VAN VERKOOPBAARHEID, GESCHIKTHEID VOOR EEN BEPAALD DOEL EN NIET-INBREUK. IN GEEN GEVAL ZIJN DE AUTEURS OF HOUDERS VAN HET AUTEURSRECHT AANSPRAKELIJK VOOR ENIGE VORDERING, SCHADE OF ANDERE AANSPRAKELIJKHEID, HETZIJ OP GROND VAN EEN OVEREENKOMST, EEN ONRECHTMATIGE DAAD OF ANDERSZINS, DIE VOORTVLOEIT UIT OF VERBAND HOUDT MET DE SOFTWARE OF HET GEBRUIK ERVAN OF ANDERE HANDELINGEN MET DE SOFTWARE.",
+  ],
+  note: "Deze vertaling is enkel ter informatie. Juridisch geldt de Engelse tekst.",
 };
 
 const SELF = { id: "robin", firstName: "Robin", name: "Robin L.", room: "Kamer 9" };
@@ -861,6 +879,23 @@ function DisclaimerBody({ titleId }) {
           </li>
         ))}
       </ul>
+      <div className="disc__license">
+        <details className="disc__fold">
+          <summary>Volledige licentie (Nederlands)</summary>
+          <div className="disc__legal">
+            <p><b>MIT-licentie</b><br />{LICENSE.copyright}</p>
+            {LICENSE.nl.map((t, i) => <p key={i} className={cx(i === 2 && "is-caps")}>{t}</p>)}
+            <p className="disc__legalnote">{LICENSE.note}</p>
+          </div>
+        </details>
+        <details className="disc__fold" lang="en">
+          <summary>Original license (English)</summary>
+          <div className="disc__legal">
+            <p><b>MIT License</b><br />{LICENSE.copyright}</p>
+            {LICENSE.en.map((t, i) => <p key={i} className={cx(i === 2 && "is-caps")}>{t}</p>)}
+          </div>
+        </details>
+      </div>
     </div>
   );
 }
@@ -3892,6 +3927,16 @@ body { margin: 0; background: var(--bg); }
 .disc__list a:hover { color: var(--ink); }
 .disc__icon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--surface-3); color: var(--ink-2); }
 .disc__close { margin-top: 2px; }
+.disc__license { display: flex; flex-direction: column; gap: 8px; margin: -4px 0 20px; }
+.disc__fold { border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.disc__fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 13px; font-size: 14px; font-weight: 650; color: var(--ink); cursor: pointer; list-style: none; }
+.disc__fold > summary::-webkit-details-marker { display: none; }
+.disc__fold > summary::after { content: ""; flex: none; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(45deg); transition: transform .2s var(--ease); }
+.disc__fold[open] > summary::after { margin-top: 3px; transform: rotate(-135deg); }
+.disc__legal { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow: auto; padding: 2px 14px 14px; font-size: 13px; line-height: 1.55; color: var(--ink-2); overscroll-behavior: contain; }
+.disc__legal b { color: var(--ink); }
+.disc__legal .is-caps { font-size: 12px; letter-spacing: .01em; }
+.disc__legalnote { padding-top: 8px; border-top: 1px solid var(--line); color: var(--ink-3); font-style: italic; }
 .modal { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 0; border: 0; border-radius: 26px; background: var(--surface); color: var(--ink); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .45); overflow: auto; }
 .modal[open] { animation: modal-in .24s var(--ease); }
 .modal::backdrop { background: rgba(14, 20, 18, .4); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
